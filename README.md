@@ -1,4 +1,4 @@
-# Universal Architecture Documentation Template (Human + AI Agent Friendly)
+# Agent Native Architecture Template (Human + AI Agent Friendly)
 
 This template standardizes documentation so **humans and AI agents** can understand and implement the same system consistently.
 It separates **contracts**, **domain rules**, **behavioral flows**, **UI intent**, **architecture views**, and **decisions**.
