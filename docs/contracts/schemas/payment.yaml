@@ -1,0 +1,6 @@
+type: object
+required: [id, state, amount]
+properties:
+  id: { type: string }
+  state: { type: string }
+  amount: { type: number }

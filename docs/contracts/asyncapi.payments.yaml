@@ -1,0 +1,13 @@
+asyncapi: 2.6.0
+info:
+  title: Payment Events
+  version: 1.0.0
+channels:
+  payment.finished.v1:
+    publish:
+      message:
+        name: PaymentFinishedV1
+  payment.cancelled.v1:
+    publish:
+      message:
+        name: PaymentCancelledV1
