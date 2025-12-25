@@ -198,33 +198,6 @@ observability:
 ```
 
 ---
-
-## 1.2 Mermaid in Flows (Links + Magnifier)
-
-Rule: `click` drill-down is supported in `flowchart`/C4 diagrams only. Do not use `click` inside `sequenceDiagram`.
-
-
-Use a **magnifier icon (🔍)** on nodes that have a drill-down document.
-Use Mermaid `click` to link to the target doc.
-
-Example pattern:
-```mermaid
-flowchart LR
-  Pay["Payment Service 🔍"]
-  PSP["PSP 🔍"]
-  Pay --> PSP
-
-  click Pay "../c4/payment-components.md" "Payment Service components"
-  click PSP "../contracts/asyncapi.payments.yaml" "PSP events"
-```
-
-Rules:
-- Prefer **relative links**
-- Link targets should live under `docs/`
-- Click targets should exist (CI can enforce)
-
----
-
 # 2) UI DOCUMENTATION
 
 UI docs express **screen intent and navigation**, not business rules.
@@ -269,10 +242,6 @@ uiNotes:
       visibility: until-form-valid
       style: disabled-primary
 ```
-
-## 2.2 Mermaid in UI (Links + Magnifier)
-
-Same pattern as flows: nodes with drill-down get 🔍 and `click` targets.
 
 ---
 
