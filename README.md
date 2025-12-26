@@ -1,7 +1,124 @@
-# Agent-Native, Documentation-Driven Architecture (Human + AI Agent Friendly)
+# Agent-Native Architecture Template
 
-This template standardizes documentation so **humans and AI agents** can understand and implement the same system consistently.
-It separates **contracts**, **domain rules**, **behavioral flows**, **UI intent**, **architecture views**, and **decisions**.
+> **Documentation is the source of truth.  
+> Code follows intent.  
+> Humans and AI agents work from the same contract.**
+
+This repository is an **agent-native, documentation-driven architecture template** designed for building software systems where **humans and AI agents collaborate reliably**.
+
+It treats architecture documentation not as static text, but as **structured, enforceable intent** that can be read, validated, and acted upon by both people and AI agents.
+
+---
+
+## What problem does this template solve?
+
+Modern projects suffer when:
+- architecture lives in people’s heads,
+- diagrams drift from reality,
+- AI agents generate code without understanding intent,
+- documentation is ignored or outdated.
+
+This template solves that by:
+- making documentation **first-class**
+- separating **structure**, **behavior**, **rules**, and **decisions**
+- defining **clear authority and drill-down rules**
+- ensuring AI agents and humans read **the same source of truth**
+
+---
+
+## Who is this for?
+
+✅ This template is for:
+- Software Architects
+- Senior / Staff Engineers
+- Teams using AI coding agents
+- Projects that care about long-term clarity
+- Systems where correctness and intent matter
+
+❌ This template is NOT for:
+- quick throwaway prototypes
+- teams that don’t want documentation
+- junior-only learning projects
+- “just generate code and ship” workflows
+
+---
+
+## Core Principles
+
+- **Documentation as Code**  
+  Architecture, flows, and decisions are versioned, reviewable, and enforceable.
+
+- **Agent-Native by Design**  
+  AI agents are first-class consumers of the documentation, not an afterthought.
+
+- **Single Source of Truth**  
+  Clear authority order prevents contradictions.
+
+- **Explicit Over Implicit**  
+  Flows, invariants, and decisions are written down, not inferred.
+
+- **Renderer-Safe & Tooling-Safe**  
+  Works consistently in GitHub, VS Code, and CI environments.
+
+---
+
+## What this template includes
+
+- **Contracts**
+  - OpenAPI & AsyncAPI as executable contracts
+
+- **Domain**
+  - Invariants
+  - State transition rules
+  - Visual state machines
+
+- **Flows**
+  - YAML metadata + Mermaid diagrams
+  - Preconditions, side effects, failures, idempotency
+  - User stories for intent
+
+- **UI Intent**
+  - Screen flows
+  - Inputs, actions, and UX notes (non-binding)
+
+- **C4 Architecture**
+  - Context, Container, Component views
+  - Structure only, no behavior
+
+- **ADR (Architecture Decision Records)**
+  - Why decisions were made
+  - Immutable once accepted
+
+- **Agent Rules**
+  - AGENT.md
+  - Agent Checklist for CI and reviews
+
+---
+
+## How to use this template
+
+1. Start with **contracts**
+2. Define **domain rules**
+3. Describe **flows**
+4. Add **UI intent**
+5. Document **architecture (C4)**
+6. Capture **decisions (ADR)**
+7. Let code follow
+
+---
+
+## Status
+
+🚧 **Experimental / Early-stage template**
+
+This template is intentionally opinionated and evolving.  
+Breaking changes may happen as better patterns emerge.
+
+---
+
+## Philosophy
+
+> **If an AI agent and a human read the same documentation, they should reach the same conclusions.**
 
 ---
 
