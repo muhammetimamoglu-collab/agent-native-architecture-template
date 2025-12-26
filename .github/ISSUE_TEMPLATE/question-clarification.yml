@@ -1,0 +1,44 @@
+name: Question / Clarification
+description: Ask a question or request clarification about the template, rules, or architecture decisions
+title: "[Question] "
+labels:
+  - question
+  - clarification
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template to ask **clarifying questions** about:
+        - architecture rules
+        - documentation structure
+        - agent behavior
+        - design rationale
+
+        This is **not** for proposing changes. Use the Proposal template for that.
+
+  - type: input
+    id: context
+    attributes:
+      label: Context
+      description: Which part of the template or documentation is this about?
+      placeholder: e.g. flows/payment-finished.md, REF-ID standard, AGENT.md
+    validations:
+      required: true
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: Clearly describe what is unclear or confusing.
+      placeholder: What is the purpose of this rule? Why is this structured this way?
+    validations:
+      required: true
+
+  - type: textarea
+    id: attempted-understanding
+    attributes:
+      label: What I think it means (optional)
+      description: If you have an interpretation, share it to help alignment.
+      placeholder: I believe this means that...
+    validations:
+      required: false

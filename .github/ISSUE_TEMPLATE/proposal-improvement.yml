@@ -1,0 +1,60 @@
+name: Proposal / Improvement
+description: Propose an improvement, change, or extension to the template
+title: "[Proposal] "
+labels:
+  - proposal
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template to propose **changes or improvements**.
+
+        This repository is **opinionated by design**.
+        Proposals should focus on improving clarity, consistency, or agent–human collaboration.
+
+  - type: input
+    id: affected-area
+    attributes:
+      label: Affected Area
+      description: Which part of the template would change?
+      placeholder: e.g. flows, C4 docs, AGENT.md, README, UI intent
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / Motivation
+      description: What problem does this proposal solve?
+      placeholder: Describe the limitation, confusion, or risk.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed Change
+      description: Describe the proposed change clearly and concretely.
+      placeholder: Add / modify / remove rules, structure, or examples.
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact
+      description: How would this affect existing users, agents, or structure?
+      placeholder: Backward compatible? Breaking? Optional?
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: This proposal aligns with the agent-native philosophy
+          required: true
+        - label: This proposal does not weaken documentation as the source of truth
+          required: true
