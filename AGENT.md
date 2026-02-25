@@ -2,6 +2,11 @@
 
 This repository is designed to be used by AI agents. The following rules are mandatory.
 
+## Sample Docs Convention
+
+- Files under `docs/**` ending with `*.sample.*` are example/reference artifacts shipped with the template.
+- Treat them as documentation examples unless the user explicitly asks to convert/create real project docs without the `.sample` suffix.
+
 ## Authority Order
 If artifacts conflict, higher priority wins:
 

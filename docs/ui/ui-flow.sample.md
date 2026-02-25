@@ -1,9 +1,9 @@
 ```yaml
-uiFlowId: UI-PAYMENT-CREATE-V1
-domain: payment
+uiFlowId: UI-SAMPLE-CREATE-V1
+domain: sample
 actors: [customer]
-goal: create and complete payment
-relatedFlows: [PAY-FINISHED-V1, PAY-CANCEL-V1]
+goal: create and complete sample
+relatedFlows: [SAMPLE-FINISHED-V1, SAMPLE-CANCEL-V1]
 uiNotes:
   amount:
     intent: guide valid input
@@ -27,15 +27,15 @@ uiNotes:
 
 ```mermaid
 flowchart LR
-  Create["Create Payment Screen [REF:FLOW:PAY-CANCEL-V1] 🔍<br/><br/>Inputs:<br/>• Amount : number<br/>• Currency : select<br/><br/>Actions:<br/>• Pay<br/>• Cancel"]
+  Create["Create Sample Screen [REF:FLOW:SAMPLE-CANCEL-V1] 🔍<br/><br/>Inputs:<br/>• Amount : number<br/>• Currency : select<br/><br/>Actions:<br/>• Pay<br/>• Cancel"]
   Processing["Processing Screen<br/>• Spinner"]
   Success["Success Screen<br/>• Done"]
   Failure["Failure Screen<br/>• Retry / Cancel"]
 
-  Create -->|Pay| Processing -->|payment finished| Success
-  Processing -->|payment failed| Failure
+  Create -->|Pay| Processing -->|sample finished| Success
+  Processing -->|sample failed| Failure
   Create -->|Cancel| Failure
 ```
 
 🔍 **References**
-- [REF:FLOW:PAY-CANCEL-V1] [Flow – Payment Cancel](../flows/payment-cancel.md)
+- [REF:FLOW:SAMPLE-CANCEL-V1] [Flow – Sample Cancel](../flows/cancel.sample.md)

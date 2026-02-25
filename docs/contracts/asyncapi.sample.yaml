@@ -1,0 +1,13 @@
+asyncapi: 2.6.0
+info:
+  title: Sample Events
+  version: 1.0.0
+channels:
+  sample.finished.v1:
+    publish:
+      message:
+        name: SampleFinishedV1
+  sample.cancelled.v1:
+    publish:
+      message:
+        name: SampleCancelledV1

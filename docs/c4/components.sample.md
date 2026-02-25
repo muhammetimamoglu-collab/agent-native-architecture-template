@@ -1,14 +1,14 @@
 ```yaml
 view: c4-component
-system: payment
-container: payment-api
+system: sample
+container: sample-api
 ```
 
 ```mermaid
 flowchart LR
   Ctrl["HTTP Controller"]
-  Svc["Payment Service"]
-  Repo["Payment Repository"]
+  Svc["Sample Service"]
+  Repo["Sample Repository"]
   Outbox["Outbox Writer"]
   Pub["Outbox Publisher [REF:ADR:0001] 🔍"]
   Bus[(Event Bus)]
@@ -19,4 +19,4 @@ flowchart LR
 ```
 
 🔍 **References**
-- [REF:ADR:0001] [ADR-0001 Outbox Pattern](../adr/0001-outbox-pattern.md)
+- [REF:ADR:0001] [ADR-0001 Outbox Pattern](../adr/0001-outbox-pattern.sample.md)

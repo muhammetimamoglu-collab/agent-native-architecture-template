@@ -146,8 +146,8 @@ docs/
 │  └─ ...
 │
 ├─ domain/
-│  ├─ invariants.md
-│  └─ state-transition-table.md
+│  ├─ invariants.sample.md
+│  └─ state-transition-table.sample.md
 │
 ├─ domain-visual/
 │  └─ <domain>-state-machine.mmd
@@ -155,6 +155,8 @@ docs/
 └─ adr/
    └─ 0001-<decision>.md
 ```
+
+Template example artifacts in `docs/` use a `*.sample.*` suffix so agents and humans can recognize them as examples.
 
 ---
 
@@ -187,8 +189,8 @@ A stable identifier for traceability and linking.
 
 Examples:
 ```yaml
-flowId: PAY-CANCEL-V1
-flowId: PAY-FINISHED-V1
+flowId: SAMPLE-CANCEL-V1
+flowId: SAMPLE-FINISHED-V1
 flowId: REFUND-CREATE-V2
 ```
 
@@ -215,19 +217,19 @@ All externally visible outcomes of the flow. Prefer explicit, parseable statemen
 1) **State mutation**
 ```yaml
 sideEffects:
-  - state: payment -> CANCELLED
+  - state: sample -> CANCELLED
 ```
 2) **DB writes**
 ```yaml
 sideEffects:
-  - dbWrite: payments.updated
-  - dbWrite: outbox.inserted(payment.cancelled.v1)
+  - dbWrite: samples.updated
+  - dbWrite: outbox.inserted(sample.cancelled.v1)
 ```
 3) **Events (outbox/bus)**
 ```yaml
 sideEffects:
-  - event: payment.cancelled.v1
-  - event: payment.finished.v1
+  - event: sample.cancelled.v1
+  - event: sample.finished.v1
 ```
 4) **Calls to other services**
 ```yaml
@@ -238,28 +240,28 @@ sideEffects:
 5) **Security / audit**
 ```yaml
 sideEffects:
-  - audit: payment.cancel.requested
+  - audit: sample.cancel.requested
 ```
 
 **Multiple fixed values examples**
 If your flow can emit one of several event types (fixed set), list them explicitly:
 ```yaml
 sideEffects:
-  - event: payment.finished.v1
-  - event: payment.failed.v1
+  - event: sample.finished.v1
+  - event: sample.failed.v1
 ```
 If your flow can transition to one of multiple states (fixed set), list each:
 ```yaml
 sideEffects:
-  - state: payment -> FINISHED
-  - state: payment -> FAILED
+  - state: sample -> FINISHED
+  - state: sample -> FAILED
 ```
 
 #### `failures` (required)
 Known failure cases (human-readable, but specific).
 ```yaml
 failures:
-  - payment not found
+  - sample not found
   - invalid state transition
   - duplicate webhook event
 ```
@@ -271,7 +273,7 @@ Intent only. Never defines rules.
 ```yaml
 userStory:
   as: customer
-  iWant: cancel a payment before completion
+  iWant: cancel a sample before completion
   soThat: I am not charged for an unwanted order
 ```
 
@@ -280,7 +282,7 @@ Links a flow to an API endpoint.
 ```yaml
 endpoint:
   method: POST
-  path: /payments/{id}/cancel
+  path: /samples/{id}/cancel
 ```
 
 #### `idempotency` (optional, recommended)
@@ -307,11 +309,11 @@ Logging/metrics expectations.
 ```yaml
 observability:
   log:
-    - payment.cancel.requested
-    - payment.cancel.completed
+    - sample.cancel.requested
+    - sample.cancel.completed
   metrics:
-    - payment_cancel_total
-    - payment_cancel_latency_ms
+    - sample_cancel_total
+    - sample_cancel_latency_ms
 ```
 
 ---
@@ -327,10 +329,10 @@ Each `docs/ui/*.md` contains:
 
 ### Required fields
 ```yaml
-uiFlowId: UI-PAYMENT-CREATE-V1
-domain: payment
+uiFlowId: UI-SAMPLE-CREATE-V1
+domain: sample
 actors: [customer]
-goal: create and complete payment
+goal: create and complete sample
 ```
 
 ### Optional fields
@@ -338,8 +340,8 @@ goal: create and complete payment
 #### `relatedFlows`
 ```yaml
 relatedFlows:
-  - PAY-CREATE-V1
-  - PAY-FINISHED-V1
+  - SAMPLE-CREATE-V1
+  - SAMPLE-FINISHED-V1
 ```
 
 #### `uiNotes`
@@ -378,20 +380,20 @@ C4 markdown files may include a lightweight YAML header:
 
 ```yaml
 view: c4-container        # c4-context | c4-container | c4-component
-system: payment           # domain or system name
-container: payment-api    # only for component views
+system: sample           # domain or system name
+container: sample-api    # only for component views
 scope: high-level         # optional description
 ```
 
 Examples:
 ```yaml
 view: c4-container
-system: payment
+system: sample
 ```
 ```yaml
 view: c4-component
-system: payment
-container: payment-api
+system: sample
+container: sample-api
 ```
 
 ### 3.1.1 C4 Context Diagram
@@ -458,9 +460,9 @@ How is a single container structured internally?
 
 # 4) DOMAIN DOCUMENTATION
 
-- `docs/domain/invariants.md` – absolute business rules (must never be violated)
-- `docs/domain/state-transition-table.md` – allowed transitions with triggers/notes
-- `docs/domain-visual/*.mmd` – visual-only state machines (no metadata)
+- `docs/domain/invariants.sample.md` – absolute business rules (must never be violated)
+- `docs/domain/state-transition-table.sample.md` – allowed transitions with triggers/notes
+- `docs/domain-visual/*.sample.mmd` – visual-only state machines (no metadata)
 
 ---
 
@@ -482,7 +484,7 @@ ADRs do not replace contracts or domain rules; they explain rationale and constr
 ## 6.1 ADR File Naming and Numbering
 
 Recommended filename pattern:
-- `docs/adr/0001-outbox-pattern.md`
+- `docs/adr/0001-outbox-pattern.sample.md`
 - `docs/adr/0002-idempotency-keys.md`
 - `docs/adr/0003-event-versioning.md`
 
@@ -565,10 +567,10 @@ Format:
 
 Examples:
 - `[REF:ADR:0001]`
-- `[REF:FLOW:PAY-CANCEL-V1]`
-- `[REF:C4:PAYMENT-COMPONENTS]`
-- `[REF:CONTRACT:ASYNCAPI-PAYMENTS]`
-- `[REF:UI:UI-PAYMENT-CREATE-V1]`
+- `[REF:FLOW:SAMPLE-CANCEL-V1]`
+- `[REF:C4:SAMPLE-COMPONENTS]`
+- `[REF:CONTRACT:ASYNCAPI-SAMPLE]`
+- `[REF:UI:UI-SAMPLE-CREATE-V1]`
 
 ---
 
@@ -581,7 +583,7 @@ flowchart LR
 
 ```md
 🔍 **References**
-- [REF:ADR:0001] [ADR-0001 Outbox Pattern](../adr/0001-outbox-pattern.md)
+- [REF:ADR:0001] [ADR-0001 Outbox Pattern](../adr/0001-outbox-pattern.sample.md)
 ```
 
 This guarantees:

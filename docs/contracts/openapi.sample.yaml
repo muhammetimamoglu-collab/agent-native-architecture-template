@@ -1,17 +1,17 @@
 openapi: 3.0.3
 info:
-  title: Payment API
+  title: Sample API
   version: 1.0.0
 paths:
-  /payments:
+  /samples:
     post:
-      summary: Create payment
+      summary: Create sample
       responses:
         "201":
           description: Created
-  /payments/{id}/cancel:
+  /samples/{id}/cancel:
     post:
-      summary: Cancel payment
+      summary: Cancel sample
       responses:
         "200":
           description: Cancelled
