@@ -13,6 +13,18 @@ If artifacts conflict, higher priority wins:
 6. `docs/c4/**`
 7. `docs/adr/**`
 
+## Architecture Conflict Handling (Mandatory)
+
+When a requested change conflicts with the architecture or behavior documented in `docs/**`:
+
+- Do not silently implement the conflicting change.
+- Inform the user that the change is inconsistent with the documented architecture, behavior, or boundaries.
+- Cite the specific conflicting artifact(s) and section(s) when possible (for example: `docs/domain/**`, `docs/flows/**`, `docs/c4/**`, `docs/adr/**`).
+- Ask for explicit user approval before proceeding with an architecture-divergent implementation.
+- If the user approves, include the required documentation updates in the task plan before implementation (for example: flow YAML/diagram, domain/domain-visual, C4, ADR, references).
+- Implement the approved documentation updates and code changes together so the repository remains internally consistent.
+- If the user does not approve, stay within the currently documented architecture or ask for clarification.
+
 ## How to Use Each Artifact
 
 ### contracts (SOURCE OF TRUTH)
