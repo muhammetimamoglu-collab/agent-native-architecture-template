@@ -13,17 +13,22 @@ If artifacts conflict, higher priority wins:
 6. `docs/c4/**`
 7. `docs/adr/**`
 
-## Architecture Conflict Handling (Mandatory)
+## Documentation Impact & Architecture Conflict Handling (Mandatory)
 
-When a requested change conflicts with the architecture or behavior documented in `docs/**`:
+When working on a task, determine whether the requested change:
 
-- Do not silently implement the conflicting change.
-- Inform the user that the change is inconsistent with the documented architecture, behavior, or boundaries.
-- Cite the specific conflicting artifact(s) and section(s) when possible (for example: `docs/domain/**`, `docs/flows/**`, `docs/c4/**`, `docs/adr/**`).
-- Ask for explicit user approval before proceeding with an architecture-divergent implementation.
+- requires additions or updates in relevant `docs/**` artifacts to stay aligned with their rules, and/or
+- conflicts with the architecture or behavior already documented in `docs/**`
+
+Use one combined workflow for both cases (do not duplicate notifications/approval requests if both apply):
+
+- Do not silently skip required documentation updates and do not silently implement conflicting changes.
+- Inform the user if the task requires `docs/**` additions/updates and/or if it conflicts with documented architecture, behavior, or boundaries.
+- Cite the specific affected or conflicting artifact(s) and section(s) when possible (for example: `docs/domain/**`, `docs/domain-visual/**`, `docs/flows/**`, `docs/c4/**`, `docs/adr/**`).
+- Ask for explicit user approval before adding required docs changes to the task scope/plan, and before proceeding with any architecture-divergent implementation.
 - If the user approves, include the required documentation updates in the task plan before implementation (for example: flow YAML/diagram, domain/domain-visual, C4, ADR, references).
 - Implement the approved documentation updates and code changes together so the repository remains internally consistent.
-- If the user does not approve, stay within the currently documented architecture or ask for clarification.
+- If the user does not approve, stay within the currently documented architecture and current task scope, or ask for clarification.
 
 ## How to Use Each Artifact
 

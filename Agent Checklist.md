@@ -2,12 +2,13 @@
 
 Use this checklist before generating or reviewing changes.
 
-## Architecture Alignment / Approval
-- [ ] Requested change checked against authoritative docs (`contracts`, `domain`, `domain-visual`, `flows`, `ui`, `c4`, `adr`)
-- [ ] If a conflict exists, user was informed with specific doc references
-- [ ] Explicit user approval obtained before any architecture-divergent implementation
+## Documentation Alignment / Approval
+- [ ] Requested change checked against authoritative docs and artifact rules (`contracts`, `domain`, `domain-visual`, `flows`, `ui`, `c4`, `adr`)
+- [ ] Determined whether the task requires docs additions/updates and/or conflicts with existing docs
+- [ ] If docs additions/updates are required or a conflict exists, user was informed with specific doc references (and proposed docs changes when applicable)
+- [ ] Explicit user approval obtained before adding docs changes to the task scope/plan and before any architecture-divergent implementation
 - [ ] If approved, required docs updates (e.g., flow/domain/C4/ADR/diagram/reference changes) were added to the task plan
-- [ ] Docs updates and implementation were applied together and are consistent
+- [ ] Approved docs updates and implementation were applied together and are consistent
 
 ## Contracts
 - [ ] OpenAPI endpoints referenced match implementation
