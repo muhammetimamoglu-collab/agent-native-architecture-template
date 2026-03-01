@@ -11,7 +11,6 @@ from qdrant_client.models import (
     Filter,
     MatchValue,
     PayloadSchemaType,
-    PointIdsList,
     PointStruct,
     ScoredPoint,
     VectorParams,
@@ -170,13 +169,13 @@ def search(
 
     query_filter = Filter(must=must_conditions) if must_conditions else None
 
-    return client.search(
+    return client.query_points(
         collection_name=collection_name,
-        query_vector=query_vector,
+        query=query_vector,
         limit=top_k,
         query_filter=query_filter,
         with_payload=True,
-    )
+    ).points
 
 
 # ---------------------------------------------------------------------------

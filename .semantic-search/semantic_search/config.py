@@ -27,8 +27,8 @@ class Settings(BaseSettings):
     code_collection: str = "code_index"
 
     # Indexing
-    docs_root: str = "../docs"
-    code_root: str = "../src"
+    docs_root: str = "docs"
+    code_root: str = "src"
     index_extensions_docs: list[str] = [".md", ".yaml", ".mmd"]
     index_extensions_code: list[str] = [
         ".py", ".js", ".jsx", ".ts", ".tsx",
