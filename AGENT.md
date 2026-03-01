@@ -87,3 +87,40 @@ Agents must:
 - `sequenceDiagram` contains **no links**
 - `flowchart` and C4 diagrams may contain **`REF:` markers only**
 - All real links live in Markdown, not in Mermaid
+
+## Semantic Search (MCP)
+
+When `.semantic-search/` is configured and indexed, use these tools before
+and during every task.
+
+### Pre-Task Context Retrieval
+
+Before making any code or documentation changes:
+
+1. Call `search_codebase` with a natural language query describing the task.
+   - `collection="docs"` — flows, domain rules, contracts, ADRs, C4 (default)
+   - `collection="code"` — implementation (functions, classes, configs)
+   - `collection="all"` — both collections merged
+2. Use `artifact_type` or `language` filters when the domain is already clear.
+3. Treat the returned chunks as the primary source for those topics.
+
+### No-Duplication Rule
+
+Files and chunks returned by `search_codebase` must not be re-read or
+re-searched manually for the same information. Exclude them from further
+investigation. Only read files that were not surfaced by the search.
+
+### Expanding a Result
+
+Use `get_file_chunk` only to expand a specific truncated chunk from a prior
+`search_codebase` result. Do not use it to browse files at random.
+
+### Docs Index Refresh
+
+After updating documentation files:
+
+- Do not call `refresh_docs_index` automatically.
+- Inform the user which files were updated and ask:
+  "Should I refresh the semantic index now?"
+- Call `refresh_docs_index` only after explicit user approval,
+  passing the list of changed file paths.

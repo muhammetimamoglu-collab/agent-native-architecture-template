@@ -2,6 +2,13 @@
 
 Use this checklist before generating or reviewing changes.
 
+## Semantic Search (Pre-Task)
+- [ ] `search_codebase` called before starting work (docs and/or code context)
+- [ ] Returned chunks used directly — returned files not re-read for the same information
+- [ ] Topics not covered by search results investigated via direct file reading
+- [ ] `get_file_chunk` used only to expand a specific truncated result, not for random browsing
+- [ ] After docs updates: user informed and approval obtained before calling `refresh_docs_index`
+
 ## Documentation Alignment / Approval
 - [ ] Requested change checked against authoritative docs and artifact rules (`contracts`, `domain`, `domain-visual`, `flows`, `ui`, `c4`, `adr`)
 - [ ] Determined whether the task requires docs additions/updates and/or conflicts with existing docs
