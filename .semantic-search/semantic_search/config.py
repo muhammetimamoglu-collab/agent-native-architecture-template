@@ -3,10 +3,15 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Tuple, Type
 
+from pydantic import model_validator
 from pydantic.fields import FieldInfo
 from pydantic_settings import BaseSettings, DotEnvSettingsSource, EnvSettingsSource, PydanticBaseSettingsSource, SettingsConfigDict
 
-_ENV_FILE = Path(__file__).parent.parent / ".env"
+import os
+
+_ENV_FILE = Path(os.environ.get("SEMANTIC_SEARCH_ENV_FILE", "")).expanduser() \
+    if os.environ.get("SEMANTIC_SEARCH_ENV_FILE") \
+    else Path(__file__).parent.parent / ".env"
 
 # Fields that accept comma-separated strings from .env (e.g. ".md,.yaml,.mmd").
 # pydantic-settings v2 calls json.loads() for list[str] fields before validators
@@ -48,14 +53,26 @@ class Settings(BaseSettings):
     ollama_url: str = "http://localhost:11434"
     local_model_name: str = "nomic-embed-text"
 
+    # Project identity
+    project_name: str = "local"
+
     # Qdrant
     qdrant_url: str = "http://localhost:6333"
-    docs_collection: str = "docs_index"
-    code_collection: str = "code_index"
+    qdrant_api_key: str = ""
+    docs_collection: str = ""   # defaults to "{project_name}_docs" if not set
+    code_collection: str = ""   # defaults to "{project_name}_code" if not set
+
+    @model_validator(mode="after")
+    def _set_collection_defaults(self) -> "Settings":
+        if not self.docs_collection:
+            self.docs_collection = f"{self.project_name}_docs"
+        if not self.code_collection:
+            self.code_collection = f"{self.project_name}_code"
+        return self
 
     # Indexing — paths relative to the git repository root
     docs_root: str = "docs"
-    code_root: str = "src"
+    code_root: str = "."
     index_extensions_docs: list[str] = [".md", ".yaml", ".mmd"]
     index_extensions_code: list[str] = [
         ".py", ".js", ".jsx", ".ts", ".tsx",

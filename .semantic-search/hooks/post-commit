@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/env python3
 # post-commit hook — semantic search auto-indexer
 #
 # Fires only on the main branch.
@@ -6,103 +6,105 @@
 # applies hash-based deduplication (already-indexed unchanged chunks are skipped).
 # Handles renames: old-path chunks are deleted, new-path chunks are indexed.
 #
-# Install: bash .semantic-search/scripts/install_hook.sh
+# Install: python .semantic-search/scripts/install_hook.py
+from __future__ import annotations
 
-set -euo pipefail
+import subprocess
+import sys
+from pathlib import Path
 
-BRANCH=$(git branch --show-current 2>/dev/null || echo "")
-if [ "$BRANCH" != "main" ]; then
-  exit 0
-fi
 
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-PLUGIN_DIR="$REPO_ROOT/.semantic-search"
+def _git(*args: str) -> str:
+    return subprocess.run(["git", *args], capture_output=True, text=True).stdout.strip()
 
-# Activate virtual environment if present
-if [ -f "$PLUGIN_DIR/.venv/bin/activate" ]; then
-  # shellcheck disable=SC1090
-  source "$PLUGIN_DIR/.venv/bin/activate"
-elif [ -f "$PLUGIN_DIR/.venv/Scripts/activate" ]; then
-  # Windows Git Bash
-  # shellcheck disable=SC1090
-  source "$PLUGIN_DIR/.venv/Scripts/activate"
-fi
 
-# Load .env (exports VOYAGE_API_KEY etc. without committing secrets)
-if [ -f "$PLUGIN_DIR/.env" ]; then
-  # shellcheck disable=SC2046
-  export $(grep -v '^#' "$PLUGIN_DIR/.env" | xargs) 2>/dev/null || true
-fi
+def main() -> None:
+    if _git("branch", "--show-current") != "main":
+        sys.exit(0)
 
-DOCS_EXTS=".md .yaml .yml .mmd"
-CODE_EXTS=".py .ts .go .js .cs .rs"
+    repo_root = Path(_git("rev-parse", "--show-toplevel"))
+    plugin_dir = repo_root / ".semantic-search"
 
-DELETED_DOCS=""
-CHANGED_DOCS=""
-DELETED_CODE=""
-CHANGED_CODE=""
+    # Resolve venv Python (prefer venv over system Python)
+    venv = plugin_dir / ".venv"
+    if (venv / "Scripts" / "python.exe").exists():
+        python = str(venv / "Scripts" / "python.exe")
+    elif (venv / "bin" / "python").exists():
+        python = str(venv / "bin" / "python")
+    else:
+        print("[semantic-search] Warning: .venv not found — skipping auto-index.", file=sys.stderr)
+        sys.exit(0)
 
-# --diff-filter=AMDCR: Added, Modified, Deleted, Copied, Renamed
-# --name-status: outputs "STATUS\told_path[\tnew_path]"
-while IFS=$'\t' read -r status old new; do
-  target="${new:-$old}"
+    # Read code extensions from settings; fall back to safe default
+    try:
+        sys.path.insert(0, str(plugin_dir))
+        from semantic_search.config import settings  # type: ignore[import]
+        code_exts = {e.lower() for e in settings.index_extensions_code}
+    except Exception:
+        code_exts = {".py", ".ts", ".go", ".js", ".cs", ".rs"}
 
-  for ext in $DOCS_EXTS; do
-    if [[ "$target" == *"$ext" ]]; then
-      if   [[ "$status" == D* ]]; then
-        DELETED_DOCS="$DELETED_DOCS $target"
-      elif [[ "$status" == R* ]]; then
-        DELETED_DOCS="$DELETED_DOCS $old"
-        CHANGED_DOCS="$CHANGED_DOCS $new"
-      else
-        CHANGED_DOCS="$CHANGED_DOCS $target"
-      fi
-    fi
-  done
+    docs_exts = {".md", ".yaml", ".yml", ".mmd"}
 
-  for ext in $CODE_EXTS; do
-    if [[ "$target" == *"$ext" ]]; then
-      if   [[ "$status" == D* ]]; then
-        DELETED_CODE="$DELETED_CODE $target"
-      elif [[ "$status" == R* ]]; then
-        DELETED_CODE="$DELETED_CODE $old"
-        CHANGED_CODE="$CHANGED_CODE $new"
-      else
-        CHANGED_CODE="$CHANGED_CODE $target"
-      fi
-    fi
-  done
-done < <(git diff-tree --no-commit-id -r --diff-filter=AMDCR --name-status HEAD)
+    # Parse commit diff
+    diff_out = subprocess.run(
+        ["git", "diff-tree", "--no-commit-id", "-r", "--diff-filter=AMDCR", "--name-status", "HEAD"],
+        capture_output=True, text=True,
+    ).stdout
 
-# Nothing to do?
-if [ -z "$DELETED_DOCS$CHANGED_DOCS$DELETED_CODE$CHANGED_CODE" ]; then
-  exit 0
-fi
+    deleted_docs: list[str] = []
+    changed_docs: list[str] = []
+    deleted_code: list[str] = []
+    changed_code: list[str] = []
 
-echo "[semantic-search] Indexing changes on main..."
+    for line in diff_out.splitlines():
+        parts = line.split("\t")
+        if len(parts) < 2:
+            continue
+        status = parts[0]
+        old = parts[1]
+        new = parts[2] if len(parts) > 2 else None
+        target = new if new else old
+        ext = Path(target).suffix.lower()
 
-# Docs: delete removed/renamed-from
-if [ -n "$DELETED_DOCS" ]; then
-  # shellcheck disable=SC2086
-  python -m semantic_search.indexer docs delete $DELETED_DOCS
-fi
+        if ext in docs_exts:
+            if status.startswith("D"):
+                deleted_docs.append(old)
+            elif status.startswith("R"):
+                deleted_docs.append(old)
+                if new:
+                    changed_docs.append(new)
+            else:
+                changed_docs.append(target)
 
-# Docs: index added/modified/renamed-to (hash-skip auto)
-if [ -n "$CHANGED_DOCS" ]; then
-  # shellcheck disable=SC2086
-  python -m semantic_search.indexer docs files $CHANGED_DOCS
-fi
+        if ext in code_exts:
+            if status.startswith("D"):
+                deleted_code.append(old)
+            elif status.startswith("R"):
+                deleted_code.append(old)
+                if new:
+                    changed_code.append(new)
+            else:
+                changed_code.append(target)
 
-# Code: delete removed/renamed-from
-if [ -n "$DELETED_CODE" ]; then
-  # shellcheck disable=SC2086
-  python -m semantic_search.indexer code delete $DELETED_CODE
-fi
+    if not any([deleted_docs, changed_docs, deleted_code, changed_code]):
+        sys.exit(0)
 
-# Code: index added/modified/renamed-to (hash-skip auto)
-if [ -n "$CHANGED_CODE" ]; then
-  # shellcheck disable=SC2086
-  python -m semantic_search.indexer code files $CHANGED_CODE
-fi
+    print("[semantic-search] Indexing changes on main...")
 
-echo "[semantic-search] Done."
+    def index(args: list[str]) -> None:
+        subprocess.run([python, "-m", "semantic_search.indexer"] + args, cwd=str(plugin_dir))
+
+    if deleted_docs:
+        index(["docs", "delete"] + deleted_docs)
+    if changed_docs:
+        index(["docs", "files"] + changed_docs)
+    if deleted_code:
+        index(["code", "delete"] + deleted_code)
+    if changed_code:
+        index(["code", "files"] + changed_code)
+
+    print("[semantic-search] Done.")
+
+
+if __name__ == "__main__":
+    main()

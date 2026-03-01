@@ -1,5 +1,7 @@
-# Claude Code — local settings (machine-specific, not for sharing)
+# Claude Code — local settings and MCP config (machine-specific, not for sharing)
 .claude/settings.local.json
+.claude/mcp.json
+.mcp.json
 
 # Semantic search plugin — secrets and generated data
 .semantic-search/.env

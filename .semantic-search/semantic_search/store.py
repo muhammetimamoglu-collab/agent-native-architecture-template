@@ -36,7 +36,10 @@ def get_client() -> QdrantClient:
         if settings.qdrant_url == ":memory:":
             _client = QdrantClient(":memory:")
         else:
-            _client = QdrantClient(url=settings.qdrant_url)
+            _client = QdrantClient(
+                url=settings.qdrant_url,
+                api_key=settings.qdrant_api_key or None,
+            )
     return _client
 
 

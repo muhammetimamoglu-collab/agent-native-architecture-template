@@ -16,65 +16,124 @@ Two separate Qdrant collections keep concerns clean:
 
 | Collection | Contains | Updated by |
 |---|---|---|
-| `docs_index` | `docs/**` Markdown, YAML, Mermaid | Hook (main) + `refresh_docs_index` MCP tool |
-| `code_index` | Source code under `src/` | Hook (main) only |
+| `{PROJECT_NAME}_docs` | `docs/**` Markdown, YAML, Mermaid | Hook (main) + `refresh_docs_index` MCP tool |
+| `{PROJECT_NAME}_code` | Source code under the repo root | Hook (main) only |
+
+Collection names are derived from `PROJECT_NAME` in `.env` (e.g. `my-project_docs`),
+so multiple projects can share the same Qdrant instance without collision.
 
 ---
 
 ## Requirements
 
-- Python 3.11+
-- Docker (for Qdrant) — or use `QDRANT_URL=:memory:` for ephemeral in-process storage
-- VoyageAI API key — or Ollama for local offline embedding
+- **Python 3.11+** — [python.org/downloads](https://www.python.org/downloads/) (Windows: check "Add to PATH" during install)
+- **Docker** (for Qdrant) — [docs.docker.com/get-started/get-docker](https://docs.docker.com/get-started/get-docker/) — or use `QDRANT_URL=:memory:` for ephemeral in-process storage
+- **VoyageAI API key** — [dash.voyageai.com](https://dash.voyageai.com/) — or Ollama for local offline embedding
 
 ---
 
 ## Installation
 
 ```bash
-# 1. Start Qdrant
+# 1. Start Qdrant (from .semantic-search/ directory)
 cd .semantic-search
 docker compose up -d
-
-# 2. Install Python package (from .semantic-search/ directory)
-pip install -e .
-
-# 3. Configure environment
-cp .env.example .env
-# Open .env and set VOYAGE_API_KEY (or switch to EMBEDDER_TYPE=local)
-
-# 4. Run the first full index
-index-docs full
-index-code full   # only if src/ exists
-
-# 5. Install the git hook
-bash scripts/install_hook.sh
 ```
+
+```
+# 2. Configure environment
+cp .env.example .env
+# Open .env and fill in at minimum:
+#   PROJECT_NAME=your-repo-name
+#   VOYAGE_API_KEY=your-key   (or set EMBEDDER_TYPE=local for Ollama)
+
+# 3. Run the first full index (creates .venv and installs the package automatically)
+python .semantic-search/scripts/index.py docs full
+python .semantic-search/scripts/index.py code full
+
+# 4. Install the git hook
+python .semantic-search/scripts/install_hook.py
+```
+
+> **`scripts/index.py`** is a cross-platform convenience wrapper — it creates `.venv/`,
+> installs the package, and forwards all arguments to the indexer CLI.
+> Run it with the system `python` (3.11+); no bash, no venv activation needed.
+>
+> If you prefer to manage the venv yourself:
+> ```
+> python -m venv .semantic-search/.venv
+> .semantic-search/.venv/Scripts/pip install -e .semantic-search   # Windows
+> .semantic-search/.venv/Scripts/index-docs full                   # Windows
+> # .semantic-search/.venv/bin/pip install ...                     # Linux / macOS
+> ```
 
 ---
 
 ## MCP Server Registration
 
-Add this to `.claude/mcp.json` (Claude Code) or `claude_desktop_config.json` (Claude Desktop):
+### Claude Code (CLI)
+
+Run this command **from the repository root** — it creates `.mcp.json` at the repo root
+and the server is only active when Claude Code is opened in this project:
+
+```
+# Windows — run from repo root
+claude mcp add semantic-search -s project -- C:/path/to/repo/.semantic-search/.venv/Scripts/python.exe -m semantic_search.mcp_server
+
+# Linux / macOS — run from repo root
+claude mcp add semantic-search -s project -- /path/to/repo/.semantic-search/.venv/bin/python -m semantic_search.mcp_server
+```
+
+Replace `C:/path/to/repo` with the absolute path to your repository root.
+`.mcp.json` is gitignored (contains machine-specific paths) — each developer runs this once.
+
+Verify registration:
+```
+claude mcp list
+```
+
+Then reload the Claude Code window (`Ctrl+Shift+P` → **Developer: Reload Window**) and run `/mcp` to confirm the server and its 4 tools are active.
+
+### Claude Desktop
+
+Add to `claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
     "semantic-search": {
-      "command": "python",
+      "command": "C:/path/to/repo/.semantic-search/.venv/Scripts/python.exe",
+      "args": ["-m", "semantic_search.mcp_server"]
+    }
+  }
+}
+```
+
+### Antigravity (Google)
+
+Antigravity currently supports only the global MCP config file located at:
+
+- **Windows:** `%USERPROFILE%\.gemini\antigravity\mcp_config.json`
+- **macOS / Linux:** `~/.gemini/antigravity/mcp_config.json`
+
+Add an entry per project using the `SEMANTIC_SEARCH_ENV_FILE` environment variable so each project's server reads its own `.env` (and therefore its own Qdrant collections):
+
+```json
+{
+  "mcpServers": {
+    "semantic-search-my-project": {
+      "command": "C:/path/to/repo/.semantic-search/.venv/Scripts/python.exe",
       "args": ["-m", "semantic_search.mcp_server"],
-      "cwd": "/absolute/path/to/repo/.semantic-search",
       "env": {
-        "VOYAGE_API_KEY": "${VOYAGE_API_KEY}",
-        "QDRANT_URL": "http://localhost:6333"
+        "SEMANTIC_SEARCH_ENV_FILE": "C:/path/to/repo/.semantic-search/.env"
       }
     }
   }
 }
 ```
 
-On Windows, replace `python` with the absolute path to the venv interpreter:
-`C:/path/to/.semantic-search/.venv/Scripts/python.exe`
+Replace `C:/path/to/repo` with the absolute path to your repository root.  
+Use a distinct server name per project (e.g. `semantic-search-my-project`) to avoid collisions when multiple projects are registered simultaneously.
 
 ---
 
@@ -111,24 +170,24 @@ LOCAL_MODEL_NAME=mxbai-embed-large  # 1024-dim, higher quality
 
 Pull the model first:
 
-```bash
+```
 ollama pull nomic-embed-text
 # or
 ollama pull mxbai-embed-large
 ```
 
 > **Warning — dimension mismatch**: If you switch between models with different vector sizes
-> (e.g. `nomic-embed-text` at 768 vs `mxbai-embed-large` at 1024), you must recreate the
-> Qdrant collection and run a full re-index:
+> (e.g. `nomic-embed-text` at 768 vs `mxbai-embed-large` at 1024), you must delete the
+> Qdrant collections and run a full re-index:
 >
-> ```bash
-> # Drop and recreate the collection
-> curl -X DELETE http://localhost:6333/collections/docs_index
-> curl -X DELETE http://localhost:6333/collections/code_index
+> ```
+> # Drop the collections (replace with your actual PROJECT_NAME)
+> curl -X DELETE http://localhost:6333/collections/my-project_docs
+> curl -X DELETE http://localhost:6333/collections/my-project_code
 >
 > # Re-index everything with the new model
-> index-docs full --force
-> index-code full --force
+> python .semantic-search/scripts/index.py docs full --force
+> python .semantic-search/scripts/index.py code full --force
 > ```
 
 ---
@@ -159,9 +218,9 @@ old-path chunks are deleted, new-path chunks are indexed.
 
 For manual cleanup (e.g. after a rename outside of git, or on a feature branch):
 
-```bash
-index-docs delete docs/old/path.md
-index-docs files docs/new/path.md
+```
+python .semantic-search/scripts/index.py docs delete docs/old/path.md
+python .semantic-search/scripts/index.py docs files docs/new/path.md
 ```
 
 ---
@@ -171,9 +230,9 @@ index-docs files docs/new/path.md
 For large repos or after significant restructuring, a periodic full re-index ensures
 the index stays clean (removes orphaned chunks, refreshes all hashes):
 
-```bash
-index-docs full --force
-index-code full --force
+```
+python .semantic-search/scripts/index.py docs full --force
+python .semantic-search/scripts/index.py code full --force
 ```
 
 The `--force` flag bypasses hash-check and rewrites all chunks unconditionally.
@@ -182,24 +241,25 @@ The `--force` flag bypasses hash-check and rewrites all chunks unconditionally.
 
 ## Verification
 
-```bash
+```
 # Check Qdrant is running
 curl http://localhost:6333/readyz
 
-# Check collection stats
-curl http://localhost:6333/collections/docs_index
+# List collections (should show {PROJECT_NAME}_docs and {PROJECT_NAME}_code)
+curl http://localhost:6333/collections
 
-# Smoke test: search for outbox pattern
+# Smoke test: search for a concept in your docs
 python -c "
 from semantic_search.embedders import get_embedder
 from semantic_search.store import search
 from semantic_search.config import settings
 e = get_embedder()
+print('Collection:', settings.docs_collection)
 for r in search(e.embed_query('outbox pattern event publishing'), settings.docs_collection, top_k=3):
     print(r.payload['file_path'], r.score)
 "
 
 # Verify hash-skip works (re-index an already-indexed file)
-index-docs files docs/adr/0001-outbox-pattern.sample.md
+python .semantic-search/scripts/index.py docs files docs/adr/0001-outbox-pattern.sample.md
 # Expected: "0 chunks indexed, N skipped (unchanged)"
 ```
