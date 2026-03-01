@@ -601,3 +601,19 @@ This guarantees:
 - How does it look? → ui
 - What exists and talks to what? → c4
 - Why was this chosen? → adr
+
+---
+
+# Semantic Search (Optional)
+
+The `.semantic-search/` plugin provides vector-based codebase search via an MCP server.
+Agents call `search_codebase` to retrieve relevant architecture context before making changes
+— reducing token usage and improving answer accuracy on large repos.
+
+Four MCP tools are available:
+- **`search_codebase`** — semantic search across docs and/or code
+- **`get_file_chunk`** — retrieve full content of a specific result chunk
+- **`list_indexed_files`** — audit what is currently indexed
+- **`refresh_docs_index`** — re-index updated docs after human approval
+
+See [`.semantic-search/README.md`](.semantic-search/README.md) for setup and configuration.

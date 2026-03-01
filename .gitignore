@@ -1,0 +1,12 @@
+# Semantic search plugin — secrets and generated data
+.semantic-search/.env
+.semantic-search/qdrant_storage/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+*.egg-info/
+dist/
+build/

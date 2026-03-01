@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+# post-commit hook — semantic search auto-indexer
+#
+# Fires only on the main branch.
+# Detects changed docs and code files from the current commit diff,
+# applies hash-based deduplication (already-indexed unchanged chunks are skipped).
+# Handles renames: old-path chunks are deleted, new-path chunks are indexed.
+#
+# Install: bash .semantic-search/scripts/install_hook.sh
+
+set -euo pipefail
+
+BRANCH=$(git branch --show-current 2>/dev/null || echo "")
+if [ "$BRANCH" != "main" ]; then
+  exit 0
+fi
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+PLUGIN_DIR="$REPO_ROOT/.semantic-search"
+
+# Activate virtual environment if present
+if [ -f "$PLUGIN_DIR/.venv/bin/activate" ]; then
+  # shellcheck disable=SC1090
+  source "$PLUGIN_DIR/.venv/bin/activate"
+elif [ -f "$PLUGIN_DIR/.venv/Scripts/activate" ]; then
+  # Windows Git Bash
+  # shellcheck disable=SC1090
+  source "$PLUGIN_DIR/.venv/Scripts/activate"
+fi
+
+# Load .env (exports VOYAGE_API_KEY etc. without committing secrets)
+if [ -f "$PLUGIN_DIR/.env" ]; then
+  # shellcheck disable=SC2046
+  export $(grep -v '^#' "$PLUGIN_DIR/.env" | xargs) 2>/dev/null || true
+fi
+
+DOCS_EXTS=".md .yaml .yml .mmd"
+CODE_EXTS=".py .ts .go .js .cs .rs"
+
+DELETED_DOCS=""
+CHANGED_DOCS=""
+DELETED_CODE=""
+CHANGED_CODE=""
+
+# --diff-filter=AMDCR: Added, Modified, Deleted, Copied, Renamed
+# --name-status: outputs "STATUS\told_path[\tnew_path]"
+while IFS=$'\t' read -r status old new; do
+  target="${new:-$old}"
+
+  for ext in $DOCS_EXTS; do
+    if [[ "$target" == *"$ext" ]]; then
+      if   [[ "$status" == D* ]]; then
+        DELETED_DOCS="$DELETED_DOCS $target"
+      elif [[ "$status" == R* ]]; then
+        DELETED_DOCS="$DELETED_DOCS $old"
+        CHANGED_DOCS="$CHANGED_DOCS $new"
+      else
+        CHANGED_DOCS="$CHANGED_DOCS $target"
+      fi
+    fi
+  done
+
+  for ext in $CODE_EXTS; do
+    if [[ "$target" == *"$ext" ]]; then
+      if   [[ "$status" == D* ]]; then
+        DELETED_CODE="$DELETED_CODE $target"
+      elif [[ "$status" == R* ]]; then
+        DELETED_CODE="$DELETED_CODE $old"
+        CHANGED_CODE="$CHANGED_CODE $new"
+      else
+        CHANGED_CODE="$CHANGED_CODE $target"
+      fi
+    fi
+  done
+done < <(git diff-tree --no-commit-id -r --diff-filter=AMDCR --name-status HEAD)
+
+# Nothing to do?
+if [ -z "$DELETED_DOCS$CHANGED_DOCS$DELETED_CODE$CHANGED_CODE" ]; then
+  exit 0
+fi
+
+echo "[semantic-search] Indexing changes on main..."
+
+# Docs: delete removed/renamed-from
+if [ -n "$DELETED_DOCS" ]; then
+  # shellcheck disable=SC2086
+  python -m semantic_search.indexer docs delete $DELETED_DOCS
+fi
+
+# Docs: index added/modified/renamed-to (hash-skip auto)
+if [ -n "$CHANGED_DOCS" ]; then
+  # shellcheck disable=SC2086
+  python -m semantic_search.indexer docs files $CHANGED_DOCS
+fi
+
+# Code: delete removed/renamed-from
+if [ -n "$DELETED_CODE" ]; then
+  # shellcheck disable=SC2086
+  python -m semantic_search.indexer code delete $DELETED_CODE
+fi
+
+# Code: index added/modified/renamed-to (hash-skip auto)
+if [ -n "$CHANGED_CODE" ]; then
+  # shellcheck disable=SC2086
+  python -m semantic_search.indexer code files $CHANGED_CODE
+fi
+
+echo "[semantic-search] Done."
