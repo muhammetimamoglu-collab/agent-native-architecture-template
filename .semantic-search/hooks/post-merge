@@ -1,4 +1,28 @@
-#!/usr/bin/env python3
+#!/bin/sh
 # post-merge hook — delegates to the shared auto-indexer.
-import subprocess, sys, pathlib
-subprocess.run([sys.executable, pathlib.Path(__file__).parent / "_auto_index.py", "merge"])
+# Works on Windows (Git for Windows), Linux, and macOS.
+#
+# We deliberately avoid #!/usr/bin/env python3 because:
+#   - Windows does not ship python3 by default
+#   - python3 may not be in PATH in CI environments
+#
+# Instead we locate the venv Python ourselves and invoke it directly.
+
+REPO_ROOT=$(git rev-parse --show-toplevel)
+PLUGIN_DIR="$REPO_ROOT/.semantic-search"
+
+# Prefer the project venv; fall back to whatever 'python' the shell sees
+if [ -f "$PLUGIN_DIR/.venv/Scripts/python.exe" ]; then
+    PYTHON="$PLUGIN_DIR/.venv/Scripts/python.exe"
+elif [ -f "$PLUGIN_DIR/.venv/bin/python" ]; then
+    PYTHON="$PLUGIN_DIR/.venv/bin/python"
+elif command -v python >/dev/null 2>&1; then
+    PYTHON="python"
+elif command -v python3 >/dev/null 2>&1; then
+    PYTHON="python3"
+else
+    echo "[semantic-search] Warning: no Python found — skipping auto-index." >&2
+    exit 0
+fi
+
+"$PYTHON" "$PLUGIN_DIR/hooks/_auto_index.py" merge
