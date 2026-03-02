@@ -51,8 +51,9 @@ cp .env.example .env
 python .semantic-search/scripts/index.py docs full
 python .semantic-search/scripts/index.py code full
 
-# 4. Install the git hook
-python .semantic-search/scripts/install_hook.py
+# 4. Install the git hook (and optionally configure Claude Code in one step)
+python .semantic-search/scripts/install_hook.py           # venv + hooks only
+python .semantic-search/scripts/install_hook.py --claude  # + MCP registration + permissions
 ```
 
 > **`scripts/index.py`** is a cross-platform convenience wrapper — it creates `.venv/`,
@@ -93,6 +94,23 @@ claude mcp list
 ```
 
 Then reload the Claude Code window (`Ctrl+Shift+P` → **Developer: Reload Window**) and run `/mcp` to confirm the server and its 4 tools are active.
+
+**Allow all 4 tools in `~/.claude/settings.json`** so Claude can call them without prompting:
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "mcp__semantic-search__search_codebase",
+      "mcp__semantic-search__get_file_chunk",
+      "mcp__semantic-search__list_indexed_files",
+      "mcp__semantic-search__refresh_docs_index"
+    ]
+  }
+}
+```
+
+Merge these into the existing `allow` array — do not replace the entire file.
 
 ### Claude Desktop
 

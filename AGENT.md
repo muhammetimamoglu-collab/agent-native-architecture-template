@@ -90,8 +90,11 @@ Agents must:
 
 ## Semantic Search (MCP)
 
-When `.semantic-search/` is configured and indexed, use these tools before
-and during every task.
+**If the MCP tool `search_codebase` is available in your session, all steps
+in this section are mandatory — not optional. Skipping them is a rule violation.**
+
+If `search_codebase` is not available (plugin not installed or Qdrant not running),
+skip this section entirely and proceed with direct file reading.
 
 ### Pre-Task Context Retrieval
 

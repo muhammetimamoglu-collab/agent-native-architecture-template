@@ -3,6 +3,10 @@
 Use this checklist before generating or reviewing changes.
 
 ## Semantic Search (Pre-Task)
+
+> **Skip this section if `search_codebase` is not available in your session.**
+> **If it IS available, every item below is mandatory.**
+
 - [ ] `search_codebase` called before starting work (docs and/or code context)
 - [ ] Returned chunks used directly — returned files not re-read for the same information
 - [ ] Topics not covered by search results investigated via direct file reading
