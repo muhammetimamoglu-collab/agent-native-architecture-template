@@ -106,7 +106,12 @@ def main(mode: str) -> None:
     print(f"[semantic-search] Indexing {label} on main...")
 
     def index(args: list[str]) -> None:
-        subprocess.run([python, "-m", "semantic_search.indexer"] + args, cwd=str(plugin_dir))
+        subprocess.run(
+            [python, "-m", "semantic_search.indexer"] + args,
+            cwd=str(plugin_dir),
+            stdout=sys.stdout,
+            stderr=sys.stderr,
+        )
 
     if deleted_docs:
         index(["docs", "delete"] + deleted_docs)
