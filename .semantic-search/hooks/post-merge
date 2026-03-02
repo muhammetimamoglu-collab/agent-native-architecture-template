@@ -1,0 +1,4 @@
+#!/usr/bin/env python3
+# post-merge hook — delegates to the shared auto-indexer.
+import subprocess, sys, pathlib
+subprocess.run([sys.executable, pathlib.Path(__file__).parent / "_auto_index.py", "merge"])

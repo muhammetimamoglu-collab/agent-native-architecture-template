@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Cross-platform installer for the semantic-search post-commit hook.
+Cross-platform installer for the semantic-search git hooks.
+Installs both post-commit and post-merge hooks.
 Works on Windows, Linux, and macOS without requiring bash.
 
 Usage (from anywhere):
@@ -31,10 +32,10 @@ def _repo_root() -> Path:
     sys.exit(1)
 
 
-def main() -> None:
-    repo_root = _repo_root()
-    src = repo_root / ".semantic-search" / "hooks" / "post-commit"
-    dst = repo_root / ".git" / "hooks" / "post-commit"
+def _install_hook(repo_root: Path, hook_name: str) -> None:
+    """Install a single hook by name (e.g. 'post-commit', 'post-merge')."""
+    src = repo_root / ".semantic-search" / "hooks" / hook_name
+    dst = repo_root / ".git" / "hooks" / hook_name
 
     if not src.exists():
         print(f"Error: hook source not found at {src}", file=sys.stderr)
@@ -59,7 +60,14 @@ def main() -> None:
 
     # Make executable (no-op on Windows but harmless)
     dst.chmod(dst.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
-    print("Hook installed. It will run on every commit to the main branch.")
+    print(f"Hook '{hook_name}' installed.")
+
+
+def main() -> None:
+    repo_root = _repo_root()
+    for hook in ("post-commit", "post-merge"):
+        _install_hook(repo_root, hook)
+    print("All hooks installed. They will run on commits and merges to the main branch.")
 
 
 if __name__ == "__main__":

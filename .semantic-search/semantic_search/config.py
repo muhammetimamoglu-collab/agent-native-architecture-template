@@ -82,6 +82,9 @@ class Settings(BaseSettings):
         ".swift", ".dart", ".rb", ".php", ".lua", ".pl",
         ".sh", ".bash", ".zsh", ".ps1",
         ".r", ".jl", ".hs", ".ex", ".exs", ".erl", ".clj",
+        # Web / UI
+        ".html", ".css", ".scss", ".sass", ".less",
+        ".svelte", ".vue",
     ]
     index_exclude: list[str] = [
         ".git", "__pycache__", ".venv", "node_modules",
