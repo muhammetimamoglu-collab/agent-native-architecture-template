@@ -36,6 +36,9 @@ so multiple projects can share the same Qdrant instance without collision.
 
 ```bash
 # 1. Start Qdrant (from .semantic-search/ directory)
+#    REQUIRED if you are running Qdrant locally via Docker.
+#    SKIP if you are connecting to a remote Qdrant instance (Qdrant Cloud or self-hosted).
+#    → In that case, set QDRANT_URL in .env to your instance URL instead.
 cd .semantic-search
 docker compose up -d
 ```
