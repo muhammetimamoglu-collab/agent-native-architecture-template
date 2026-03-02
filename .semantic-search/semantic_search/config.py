@@ -85,6 +85,8 @@ class Settings(BaseSettings):
         # Web / UI
         ".html", ".css", ".scss", ".sass", ".less",
         ".svelte", ".vue",
+        # Database / Schemas
+        ".sql", ".prisma", ".graphql", ".gql",
     ]
     index_exclude: list[str] = [
         ".git", "__pycache__", ".venv", "node_modules",

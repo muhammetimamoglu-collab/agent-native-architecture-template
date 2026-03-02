@@ -54,15 +54,15 @@ def main(mode: str) -> None:
         print("[semantic-search] Warning: .venv not found — skipping auto-index.", file=sys.stderr)
         sys.exit(0)
 
-    # Read code extensions from settings; fall back to safe default
+    # Read extensions from settings; fall back to safe default
     try:
         sys.path.insert(0, str(plugin_dir))
         from semantic_search.config import settings  # type: ignore[import]
         code_exts = {e.lower() for e in settings.index_extensions_code}
+        docs_exts = {e.lower() for e in settings.index_extensions_docs}
     except Exception:
         code_exts = {".py", ".ts", ".go", ".js", ".cs", ".rs"}
-
-    docs_exts = {".md", ".yaml", ".yml", ".mmd"}
+        docs_exts = {".md", ".yaml", ".yml", ".mmd"}
 
     deleted_docs: list[str] = []
     changed_docs: list[str] = []
