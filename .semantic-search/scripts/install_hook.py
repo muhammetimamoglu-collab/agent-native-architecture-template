@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
 """
-Cross-platform installer for the semantic-search git hooks.
-Installs both post-commit and post-merge hooks.
+Full installer for the semantic-search plugin.
+
+Steps performed:
+  1. Creates .semantic-search/.venv (if absent)
+  2. Installs the plugin package into the venv  (pip install -e .)
+  3. Installs post-commit and post-merge git hooks
+
 Works on Windows, Linux, and macOS without requiring bash.
 
-Usage (from anywhere):
+Usage (from repo root or anywhere inside the repo):
     python .semantic-search/scripts/install_hook.py
 """
 
@@ -21,6 +26,10 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 PLUGIN_DIR = SCRIPT_DIR.parent
 
 
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
 def _repo_root() -> Path:
     result = subprocess.run(
         ["git", "rev-parse", "--show-toplevel"],
@@ -31,6 +40,46 @@ def _repo_root() -> Path:
     print("Error: not inside a git repository.", file=sys.stderr)
     sys.exit(1)
 
+
+def _venv_python(venv: Path) -> Path:
+    """Return the Python executable inside the venv (cross-platform)."""
+    win = venv / "Scripts" / "python.exe"
+    unix = venv / "bin" / "python"
+    return win if win.exists() else unix
+
+
+# ---------------------------------------------------------------------------
+# Step 1 + 2 — venv + package
+# ---------------------------------------------------------------------------
+
+def _setup_venv(plugin_dir: Path) -> Path:
+    """Create .venv and install the package. Returns the venv Python path."""
+    venv = plugin_dir / ".venv"
+
+    if not venv.exists():
+        print(f"Creating virtual environment at {venv} ...")
+        subprocess.run([sys.executable, "-m", "venv", str(venv)], check=True)
+        print("Virtual environment created.")
+    else:
+        print(f"Virtual environment already exists at {venv} — skipping creation.")
+
+    python = _venv_python(venv)
+    if not python.exists():
+        print(f"Error: expected Python at {python} but not found.", file=sys.stderr)
+        sys.exit(1)
+
+    print("Installing semantic-search package into venv (pip install -e .) ...")
+    subprocess.run(
+        [str(python), "-m", "pip", "install", "--quiet", "-e", str(plugin_dir)],
+        check=True,
+    )
+    print("Package installed.")
+    return python
+
+
+# ---------------------------------------------------------------------------
+# Step 3 — git hooks
+# ---------------------------------------------------------------------------
 
 def _install_hook(repo_root: Path, hook_name: str) -> None:
     """Install a single hook by name (e.g. 'post-commit', 'post-merge')."""
@@ -63,11 +112,30 @@ def _install_hook(repo_root: Path, hook_name: str) -> None:
     print(f"Hook '{hook_name}' installed.")
 
 
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
 def main() -> None:
     repo_root = _repo_root()
+    plugin_dir = repo_root / ".semantic-search"
+
+    print("=" * 60)
+    print("semantic-search installer")
+    print("=" * 60)
+
+    # Step 1 & 2: venv + package
+    _setup_venv(plugin_dir)
+
+    # Step 3: git hooks
+    print("\nInstalling git hooks ...")
     for hook in ("post-commit", "post-merge"):
         _install_hook(repo_root, hook)
-    print("All hooks installed. They will run on commits and merges to the main branch.")
+
+    print("\n" + "=" * 60)
+    print("Installation complete!")
+    print("Hooks will auto-index on commits and merges to the main branch.")
+    print("=" * 60)
 
 
 if __name__ == "__main__":
