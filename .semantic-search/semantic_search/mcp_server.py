@@ -222,15 +222,23 @@ async def handle_list_tools() -> list[Tool]:
 
 @server.call_tool()
 async def handle_call_tool(name: str, arguments: dict) -> list[TextContent]:
-    if name == "search_codebase":
-        return await _search_codebase(arguments)
-    if name == "get_file_chunk":
-        return await _get_file_chunk(arguments)
-    if name == "list_indexed_files":
-        return await _list_indexed_files(arguments)
-    if name == "refresh_docs_index":
-        return await _refresh_docs_index(arguments)
-    return [TextContent(type="text", text=json.dumps({"error": f"unknown tool: {name}"}))]
+    try:
+        if name == "search_codebase":
+            return await _search_codebase(arguments)
+        if name == "get_file_chunk":
+            return await _get_file_chunk(arguments)
+        if name == "list_indexed_files":
+            return await _list_indexed_files(arguments)
+        if name == "refresh_docs_index":
+            return await _refresh_docs_index(arguments)
+        return [TextContent(type="text", text=json.dumps({"error": f"unknown tool: {name}"}))]
+    except Exception as exc:
+        return [
+            TextContent(
+                type="text",
+                text=json.dumps({"error": str(exc), "tool": name}, indent=2),
+            )
+        ]
 
 
 async def _search_codebase(args: dict) -> list[TextContent]:
@@ -321,42 +329,53 @@ async def _refresh_docs_index(args: dict) -> list[TextContent]:
 
     import subprocess
 
-    changed_files: list[str] = args["changed_files"]
-    embedder = get_embedder()
-    ensure_collection(settings.docs_collection, embedder.vector_size)
-
-    # Resolve repo root
-    result = subprocess.run(
-        ["git", "rev-parse", "--show-toplevel"],
-        capture_output=True, text=True,
-    )
-    repo_root = Path(result.stdout.strip()) if result.returncode == 0 else Path.cwd().parent
-
-    exts = {e.lower() for e in settings.index_extensions_docs}
     total_indexed = 0
     total_skipped = 0
+    errors: list[dict[str, str]] = []
 
-    for fp in changed_files:
-        path = repo_root / fp
-        if not path.exists():
-            continue
-        if path.suffix.lower() not in exts:
-            continue
+    try:
+        changed_files: list[str] = args["changed_files"]
+        embedder = get_embedder()
+        ensure_collection(settings.docs_collection, embedder.vector_size)
 
-        from semantic_search.chunker import chunk_file as _chunk_file
-        chunks = _chunk_file(path, fp, is_code=False)
-        if not chunks:
-            continue
+        # Resolve repo root
+        result = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            capture_output=True, text=True,
+        )
+        repo_root = Path(result.stdout.strip()) if result.returncode == 0 else Path.cwd().parent
 
-        r = upsert_chunks_smart(chunks, embedder, settings.docs_collection)
-        total_indexed += r["indexed"]
-        total_skipped += r["skipped"]
+        exts = {e.lower() for e in settings.index_extensions_docs}
+
+        for fp in changed_files:
+            path = repo_root / fp
+            if not path.exists():
+                continue
+            if path.suffix.lower() not in exts:
+                continue
+
+            try:
+                from semantic_search.chunker import chunk_file as _chunk_file
+
+                chunks = _chunk_file(path, fp, is_code=False)
+                if not chunks:
+                    continue
+
+                result = upsert_chunks_smart(chunks, embedder, settings.docs_collection)
+                total_indexed += result["indexed"]
+                total_skipped += result["skipped"]
+            except Exception as exc:
+                errors.append({"file_path": fp, "error": str(exc)})
+    except Exception as exc:
+        errors.append({"scope": "refresh_docs_index", "error": str(exc)})
 
     result_payload = {
         "indexed": total_indexed,
         "skipped": total_skipped,
         "updated_at": datetime.now(UTC).isoformat(),
     }
+    if errors:
+        result_payload["errors"] = errors
     return [TextContent(type="text", text=json.dumps(result_payload, indent=2))]
 
 

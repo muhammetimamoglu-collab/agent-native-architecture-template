@@ -11,7 +11,6 @@ from semantic_search.chunker import chunk_file
 from semantic_search.config import settings
 from semantic_search.embedders import get_embedder
 from semantic_search.store import (
-    delete_collection,
     delete_file_chunks,
     ensure_collection,
     upsert_chunks_smart,
@@ -67,12 +66,13 @@ def _run_index(
     collection_name: str,
     is_code: bool,
     force: bool,
-) -> None:
+) -> list[tuple[str, str]]:
     embedder = get_embedder()
     ensure_collection(collection_name, embedder.vector_size)
 
     total_indexed = 0
     total_skipped = 0
+    failures: list[tuple[str, str]] = []
 
     for path in track(paths, description="Indexing..."):
         try:
@@ -80,36 +80,23 @@ def _run_index(
         except ValueError:
             rel = path.as_posix()
 
-        chunks = chunk_file(path, rel, is_code=is_code)
-        if not chunks:
-            continue
+        try:
+            chunks = chunk_file(path, rel, is_code=is_code)
+            if not chunks:
+                continue
 
-        if force:
-            # Force: skip hash check — delete existing chunks and upsert all
-            delete_file_chunks(rel, collection_name)
-            from datetime import UTC, datetime
-            from semantic_search.store import chunk_uuid
-            from qdrant_client.models import PointStruct
-
-            texts = [f"{c.chunk_heading}\n\n{c.content}" for c in chunks]
-            embeddings = embedder.embed_documents(texts)
-            now = datetime.now(UTC).isoformat()
-
-            client = __import__("semantic_search.store", fromlist=["get_client"]).get_client()
-            points = [
-                PointStruct(
-                    id=chunk_uuid(chunk),
-                    vector=embedding,
-                    payload={**chunk.to_payload(), "indexed_at": now},
-                )
-                for chunk, embedding in zip(chunks, embeddings)
-            ]
-            client.upsert(collection_name=collection_name, points=points)
-            total_indexed += len(chunks)
-        else:
-            result = upsert_chunks_smart(chunks, embedder, collection_name)
-            total_indexed += result["indexed"]
-            total_skipped += result["skipped"]
+            if force:
+                # Force: skip hash check â€” delete existing chunks and upsert all
+                delete_file_chunks(rel, collection_name)
+                result = upsert_chunks_smart(chunks, embedder, collection_name)
+                total_indexed += result["indexed"]
+            else:
+                result = upsert_chunks_smart(chunks, embedder, collection_name)
+                total_indexed += result["indexed"]
+                total_skipped += result["skipped"]
+        except Exception as exc:
+            failures.append((rel, str(exc)))
+            console.print(f"[red]Failed:[/red] {rel} - {exc}")
 
     if force:
         console.print(
@@ -121,6 +108,13 @@ def _run_index(
             f"[green]Done:[/green] {total_indexed} chunks indexed, "
             f"{total_skipped} skipped (unchanged) in [bold]{collection_name}[/bold]."
         )
+
+    if failures:
+        console.print(f"[red]Failures:[/red] {len(failures)} file(s) could not be indexed.")
+        for rel, error in failures:
+            console.print(f"  - {rel}: {error}")
+
+    return failures
 
 
 # ---------------------------------------------------------------------------
@@ -141,7 +135,9 @@ def docs_full(
 
     paths = _discover_files(docs_root, settings.index_extensions_docs)
     console.print(f"[blue]Full docs index:[/blue] {len(paths)} files found in {docs_root}")
-    _run_index(paths, repo_root, settings.docs_collection, is_code=False, force=force)
+    failures = _run_index(paths, repo_root, settings.docs_collection, is_code=False, force=force)
+    if failures:
+        raise typer.Exit(1)
 
 
 @docs_app.command("files")
@@ -161,7 +157,9 @@ def docs_files(
         console.print("[yellow]No matching docs files to index.[/yellow]")
         raise typer.Exit(0)
     console.print(f"[blue]Incremental docs index:[/blue] {len(paths)} file(s)")
-    _run_index(paths, repo_root, settings.docs_collection, is_code=False, force=force)
+    failures = _run_index(paths, repo_root, settings.docs_collection, is_code=False, force=force)
+    if failures:
+        raise typer.Exit(1)
 
 
 @docs_app.command("delete")
@@ -169,7 +167,6 @@ def docs_delete(
     file_paths: list[str] = typer.Argument(..., help="Relative paths of files to remove from index."),
 ) -> None:
     """Remove specific documentation files from the index (e.g. after rename or deletion)."""
-    repo_root = _repo_root()
     for fp in file_paths:
         try:
             rel = Path(fp).as_posix()
@@ -197,7 +194,9 @@ def code_full(
 
     paths = _discover_files(code_root, settings.index_extensions_code)
     console.print(f"[blue]Full code index:[/blue] {len(paths)} files found in {code_root}")
-    _run_index(paths, repo_root, settings.code_collection, is_code=True, force=force)
+    failures = _run_index(paths, repo_root, settings.code_collection, is_code=True, force=force)
+    if failures:
+        raise typer.Exit(1)
 
 
 @code_app.command("files")
@@ -217,7 +216,9 @@ def code_files(
         console.print("[yellow]No matching code files to index.[/yellow]")
         raise typer.Exit(0)
     console.print(f"[blue]Incremental code index:[/blue] {len(paths)} file(s)")
-    _run_index(paths, repo_root, settings.code_collection, is_code=True, force=force)
+    failures = _run_index(paths, repo_root, settings.code_collection, is_code=True, force=force)
+    if failures:
+        raise typer.Exit(1)
 
 
 @code_app.command("delete")
@@ -225,7 +226,6 @@ def code_delete(
     file_paths: list[str] = typer.Argument(..., help="Relative paths of files to remove from index."),
 ) -> None:
     """Remove specific source code files from the index (e.g. after rename or deletion)."""
-    repo_root = _repo_root()
     for fp in file_paths:
         try:
             rel = Path(fp).as_posix()

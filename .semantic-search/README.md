@@ -21,6 +21,8 @@ Two separate Qdrant collections keep concerns clean:
 
 Collection names are derived from `PROJECT_NAME` in `.env` (e.g. `my-project_docs`),
 so multiple projects can share the same Qdrant instance without collision.
+On startup, the server also backfills missing payload indexes on existing collections, so
+tools like `get_file_chunk` keep working after template upgrades.
 
 ---
 
@@ -70,6 +72,11 @@ python .semantic-search/scripts/install_hook.py --claude  # + MCP registration +
 > .semantic-search/.venv/Scripts/index-docs full                   # Windows
 > # .semantic-search/.venv/bin/pip install ...                     # Linux / macOS
 > ```
+
+For remote Qdrant instances, the indexer now retries transient connection failures and writes
+smaller Qdrant batches. Tune `QDRANT_RETRY_ATTEMPTS`, `QDRANT_RETRY_BACKOFF_SECONDS`,
+`QDRANT_RETRIEVE_BATCH_SIZE`, and `QDRANT_UPSERT_BATCH_SIZE` in `.env` if your provider is
+aggressive about connection resets.
 
 ---
 
