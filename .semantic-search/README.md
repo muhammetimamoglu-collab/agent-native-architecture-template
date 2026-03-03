@@ -75,8 +75,11 @@ python .semantic-search/scripts/install_hook.py --claude  # + MCP registration +
 
 For remote Qdrant instances, the indexer now retries transient connection failures and writes
 smaller Qdrant batches. Tune `QDRANT_RETRY_ATTEMPTS`, `QDRANT_RETRY_BACKOFF_SECONDS`,
-`QDRANT_RETRIEVE_BATCH_SIZE`, and `QDRANT_UPSERT_BATCH_SIZE` in `.env` if your provider is
-aggressive about connection resets.
+`QDRANT_REQUEST_TIMEOUT_SECONDS`, `QDRANT_RETRIEVE_BATCH_SIZE`, and
+`QDRANT_UPSERT_BATCH_SIZE` in `.env` if your provider is aggressive about connection resets.
+If `refresh_docs_index` appears stuck, lower `QDRANT_REQUEST_TIMEOUT_SECONDS` and
+`VOYAGE_REQUEST_TIMEOUT_SECONDS` temporarily so the MCP tool returns a visible error instead
+of waiting indefinitely on a network call.
 
 ---
 

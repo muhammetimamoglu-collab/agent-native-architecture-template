@@ -63,8 +63,10 @@ class Settings(BaseSettings):
     code_collection: str = ""   # defaults to "{project_name}_code" if not set
     qdrant_retry_attempts: int = 4
     qdrant_retry_backoff_seconds: float = 1.0
+    qdrant_request_timeout_seconds: int = 30
     qdrant_retrieve_batch_size: int = 128
     qdrant_upsert_batch_size: int = 64
+    voyage_request_timeout_seconds: float = 30.0
 
     @model_validator(mode="after")
     def _set_collection_defaults(self) -> "Settings":

@@ -41,6 +41,22 @@ class DummyChunk:
 
 
 class StoreTests(unittest.TestCase):
+    def test_get_client_uses_configured_request_timeout(self) -> None:
+        with (
+            mock.patch.object(store, "_client", None),
+            mock.patch.object(store.settings, "qdrant_url", "https://example.qdrant.io"),
+            mock.patch.object(store.settings, "qdrant_api_key", "secret"),
+            mock.patch.object(store.settings, "qdrant_request_timeout_seconds", 17),
+            mock.patch("semantic_search.store.QdrantClient") as client_cls,
+        ):
+            store.get_client()
+
+        client_cls.assert_called_once_with(
+            url="https://example.qdrant.io",
+            api_key="secret",
+            timeout=17,
+        )
+
     def test_ensure_collection_migrates_missing_chunk_index(self) -> None:
         client = mock.Mock()
         client.get_collections.return_value = SimpleNamespace(
@@ -54,7 +70,10 @@ class StoreTests(unittest.TestCase):
             }
         )
 
-        with mock.patch("semantic_search.store.get_client", return_value=client):
+        with (
+            mock.patch("semantic_search.store.get_client", return_value=client),
+            mock.patch.object(store.settings, "qdrant_request_timeout_seconds", 11),
+        ):
             store.ensure_collection("demo_docs", 1024)
 
         client.create_collection.assert_not_called()
@@ -62,6 +81,7 @@ class StoreTests(unittest.TestCase):
             collection_name="demo_docs",
             field_name="chunk_index",
             field_schema=PayloadSchemaType.INTEGER,
+            timeout=11,
         )
 
     def test_upsert_chunks_smart_batches_retrieve_and_upsert(self) -> None:
@@ -83,6 +103,7 @@ class StoreTests(unittest.TestCase):
             mock.patch("semantic_search.store.get_client", return_value=client),
             mock.patch.object(store.settings, "qdrant_retrieve_batch_size", 2),
             mock.patch.object(store.settings, "qdrant_upsert_batch_size", 1),
+            mock.patch.object(store.settings, "qdrant_request_timeout_seconds", 9),
         ):
             result = store.upsert_chunks_smart(chunks, embedder, "demo_docs")
 
@@ -90,6 +111,8 @@ class StoreTests(unittest.TestCase):
         self.assertEqual(client.retrieve.call_count, 2)
         self.assertEqual(client.upsert.call_count, 2)
         embedder.embed_documents.assert_called_once()
+        self.assertTrue(all(call.kwargs["timeout"] == 9 for call in client.retrieve.call_args_list))
+        self.assertTrue(all(call.kwargs["timeout"] == 9 for call in client.upsert.call_args_list))
 
 
 if __name__ == "__main__":

@@ -10,6 +10,11 @@ _MODEL = "voyage-code-3"
 _VECTOR_SIZE = 1024
 
 
+def _voyage_request_timeout() -> float | None:
+    timeout = settings.voyage_request_timeout_seconds
+    return timeout if timeout > 0 else None
+
+
 class VoyageEmbedder(BaseEmbedder):
     """
     Embedding backend using VoyageAI voyage-code-3.
@@ -27,7 +32,10 @@ class VoyageEmbedder(BaseEmbedder):
                 "VOYAGE_API_KEY is not set. "
                 "Add it to .semantic-search/.env or set EMBEDDER_TYPE=local."
             )
-        self._client = voyageai.Client(api_key=settings.voyage_api_key)
+        self._client = voyageai.Client(
+            api_key=settings.voyage_api_key,
+            timeout=_voyage_request_timeout(),
+        )
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
         if not texts:

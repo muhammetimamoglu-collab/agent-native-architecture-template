@@ -63,8 +63,14 @@ def get_client() -> QdrantClient:
             _client = QdrantClient(
                 url=settings.qdrant_url,
                 api_key=settings.qdrant_api_key or None,
+                timeout=_qdrant_request_timeout(),
             )
     return _client
+
+
+def _qdrant_request_timeout() -> int | None:
+    timeout = settings.qdrant_request_timeout_seconds
+    return timeout if timeout > 0 else None
 
 
 def _is_retryable_qdrant_error(exc: Exception) -> bool:
@@ -112,7 +118,10 @@ def _retry_qdrant(operation: Callable[[], T], *, action: str) -> T:
 
 def _ensure_payload_indexes(client: QdrantClient, collection_name: str) -> None:
     collection_info = _retry_qdrant(
-        lambda: client.get_collection(collection_name),
+        lambda: client.get_collection(
+            collection_name,
+            timeout=_qdrant_request_timeout(),
+        ),
         action=f"collection inspection for '{collection_name}'",
     )
     payload_schema = getattr(collection_info, "payload_schema", {}) or {}
@@ -126,6 +135,7 @@ def _ensure_payload_indexes(client: QdrantClient, collection_name: str) -> None:
                     collection_name=collection_name,
                     field_name=field,
                     field_schema=schema,
+                    timeout=_qdrant_request_timeout(),
                 ),
                 action=f"payload index creation for '{collection_name}.{field}'",
             )
@@ -146,7 +156,9 @@ def ensure_collection(collection_name: str, vector_size: int) -> None:
     existing = {
         c.name
         for c in _retry_qdrant(
-            lambda: client.get_collections().collections,
+            lambda: client.get_collections(
+                timeout=_qdrant_request_timeout(),
+            ).collections,
             action="collection listing",
         )
     }
@@ -156,6 +168,7 @@ def ensure_collection(collection_name: str, vector_size: int) -> None:
             lambda: client.create_collection(
                 collection_name=collection_name,
                 vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE),
+                timeout=_qdrant_request_timeout(),
             ),
             action=f"collection creation for '{collection_name}'",
         )
@@ -167,7 +180,10 @@ def delete_collection(collection_name: str) -> None:
     """Drop a collection entirely (use before full re-index with new model)."""
     client = get_client()
     _retry_qdrant(
-        lambda: client.delete_collection(collection_name),
+        lambda: client.delete_collection(
+            collection_name,
+            timeout=_qdrant_request_timeout(),
+        ),
         action=f"collection deletion for '{collection_name}'",
     )
 
@@ -212,6 +228,7 @@ def upsert_chunks_smart(
                 collection_name,
                 ids=batch_ids,
                 with_payload=["content_hash"],
+                timeout=_qdrant_request_timeout(),
             ),
             action=f"content hash lookup for '{collection_name}'",
         )
@@ -244,7 +261,11 @@ def upsert_chunks_smart(
         for i in range(0, len(points), upsert_batch_size):
             batch = points[i : i + upsert_batch_size]
             _retry_qdrant(
-                lambda batch=batch: client.upsert(collection_name=collection_name, points=batch),
+                lambda batch=batch: client.upsert(
+                    collection_name=collection_name,
+                    points=batch,
+                    timeout=_qdrant_request_timeout(),
+                ),
                 action=f"point upsert for '{collection_name}'",
             )
 
@@ -264,6 +285,7 @@ def delete_file_chunks(file_path: str, collection_name: str) -> int:
             points_selector=Filter(
                 must=[FieldCondition(key="file_path", match=MatchValue(value=file_path))]
             ),
+            timeout=_qdrant_request_timeout(),
         ),
         action=f"file chunk deletion for '{file_path}' in '{collection_name}'",
     )
@@ -302,6 +324,7 @@ def search(
             limit=top_k,
             query_filter=query_filter,
             with_payload=True,
+            timeout=_qdrant_request_timeout(),
         ).points,
         action=f"search in '{collection_name}'",
     )
@@ -324,6 +347,7 @@ def list_files(collection_name: str) -> list[dict]:
                 with_payload=True,
                 limit=256,
                 offset=offset,
+                timeout=_qdrant_request_timeout(),
             ),
             action=f"file listing in '{collection_name}'",
         )
@@ -365,6 +389,7 @@ def get_chunk(file_path: str, chunk_index: int, collection_name: str) -> dict | 
             ),
             limit=1,
             with_payload=True,
+            timeout=_qdrant_request_timeout(),
         ),
         action=f"chunk lookup for '{file_path}#{chunk_index}' in '{collection_name}'",
     )
