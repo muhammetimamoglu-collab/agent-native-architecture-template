@@ -2,6 +2,15 @@
 
 This repository is designed to be used by AI agents. The following rules are mandatory.
 
+## Agent Checklist (Mandatory)
+
+Before starting any task that generates or reviews changes, open
+**`Agent Checklist.md`** at the repository root and use the relevant sections
+as a guidance checklist during analysis and verification.
+`Agent Checklist.md` is a reference file to consult, not a file to modify as
+part of normal task execution. Do not edit it unless the user explicitly asks
+for changes to that file.
+
 ## Sample Docs Convention
 
 - Files under `docs/**` ending with `*.sample.*` are example/reference artifacts shipped with the template.
