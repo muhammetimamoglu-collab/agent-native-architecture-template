@@ -77,6 +77,13 @@ class StoreTests(unittest.TestCase):
             store.ensure_collection("demo_docs", 1024)
 
         client.create_collection.assert_not_called()
+        client.get_collections.assert_called_once_with(
+            **store._collection_read_kwargs("get_collections")
+        )
+        client.get_collection.assert_called_once_with(
+            "demo_docs",
+            **store._collection_read_kwargs("get_collection")
+        )
         client.create_payload_index.assert_called_once_with(
             collection_name="demo_docs",
             field_name="chunk_index",

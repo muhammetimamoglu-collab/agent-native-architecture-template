@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import inspect
 import time
 import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime
+from functools import lru_cache
 from typing import TYPE_CHECKING, TypeVar
 
 import httpx
@@ -73,6 +75,21 @@ def _qdrant_request_timeout() -> int | None:
     return timeout if timeout > 0 else None
 
 
+@lru_cache(maxsize=None)
+def _supports_qdrant_timeout_override(method_name: str) -> bool:
+    method = getattr(QdrantClient, method_name, None)
+    if method is None:
+        return False
+    return "timeout" in inspect.signature(method).parameters
+
+
+def _collection_read_kwargs(method_name: str) -> dict[str, int]:
+    timeout = _qdrant_request_timeout()
+    if timeout is None or not _supports_qdrant_timeout_override(method_name):
+        return {}
+    return {"timeout": timeout}
+
+
 def _is_retryable_qdrant_error(exc: Exception) -> bool:
     if isinstance(
         exc,
@@ -120,7 +137,7 @@ def _ensure_payload_indexes(client: QdrantClient, collection_name: str) -> None:
     collection_info = _retry_qdrant(
         lambda: client.get_collection(
             collection_name,
-            timeout=_qdrant_request_timeout(),
+            **_collection_read_kwargs("get_collection"),
         ),
         action=f"collection inspection for '{collection_name}'",
     )
@@ -157,7 +174,7 @@ def ensure_collection(collection_name: str, vector_size: int) -> None:
         c.name
         for c in _retry_qdrant(
             lambda: client.get_collections(
-                timeout=_qdrant_request_timeout(),
+                **_collection_read_kwargs("get_collections"),
             ).collections,
             action="collection listing",
         )

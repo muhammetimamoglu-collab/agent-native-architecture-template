@@ -58,12 +58,20 @@ python .semantic-search/scripts/index.py code full
 
 # 4. Install the git hook (and optionally configure Claude Code in one step)
 python .semantic-search/scripts/install_hook.py           # venv + hooks only
-python .semantic-search/scripts/install_hook.py --claude  # + MCP registration + permissions
+python .semantic-search/scripts/install_hook.py --claude  # + project .mcp.json + Claude permissions
+python .semantic-search/scripts/install_hook.py --codex   # + Codex project MCP registration
+python .semantic-search/scripts/install_hook.py --claude --codex
 ```
 
 > **`scripts/index.py`** is a cross-platform convenience wrapper — it creates `.venv/`,
 > installs the package, and forwards all arguments to the indexer CLI.
 > Run it with the system `python` (3.11+); no bash, no venv activation needed.
+>
+> When you pass `--claude`, the installer writes a project-scoped `.mcp.json` at the repo root,
+> enables `semantic-search` in `.claude/settings.local.json`, removes any legacy user-scoped
+> `semantic-search` entry from `~/.claude/mcp.json`, and merges the 3 read-only tool permissions
+> into Claude settings. `refresh_docs_index` is intentionally left out of the allow-list so Claude
+> still asks for approval before re-indexing docs.
 >
 > If you prefer to manage the venv yourself:
 > ```
@@ -85,7 +93,55 @@ of waiting indefinitely on a network call.
 
 ## MCP Server Registration
 
+### Codex (Project-Scoped)
+
+Codex supports **project-scoped MCP configuration** via `.codex/config.toml` in a trusted
+workspace. This template recommends the project-scoped setup so each repository can point to its
+own `.semantic-search/.env` and Qdrant collections.
+
+Fastest setup:
+
+```
+python .semantic-search/scripts/install_hook.py --codex
+```
+
+That writes a machine-local `.codex/config.toml` entry like:
+
+```toml
+[mcp_servers.semantic-search]
+command = "C:/path/to/repo/.semantic-search/.venv/Scripts/python.exe"
+args = ["-m", "semantic_search.mcp_server"]
+cwd = "C:/path/to/repo"
+startup_timeout_sec = 20
+tool_timeout_sec = 180
+
+[mcp_servers.semantic-search.env]
+SEMANTIC_SEARCH_ENV_FILE = "C:/path/to/repo/.semantic-search/.env"
+```
+
+Replace `C:/path/to/repo` with your repository root if you create the file manually.
+`.codex/config.toml` is machine-specific and should not be committed.
+
+After setup, reopen or trust the project in Codex, then verify from the repo root:
+
+```
+codex mcp list
+```
+
+Codex also supports global MCP registration via `codex mcp add`, but this template prefers
+project-scoped config so different repositories can keep separate semantic-search environments.
+
 ### Claude Code (CLI)
+
+Fastest setup:
+
+```
+python .semantic-search/scripts/install_hook.py --claude
+```
+
+That creates a project-scoped `.mcp.json` at the repo root, enables it in
+`.claude/settings.local.json`, and updates Claude permissions so only the 3 read-only tools are
+auto-allowed.
 
 Run this command **from the repository root** — it creates `.mcp.json` at the repo root
 and the server is only active when Claude Code is opened in this project:
@@ -101,6 +157,9 @@ claude mcp add semantic-search -s project -- /path/to/repo/.semantic-search/.ven
 Replace `C:/path/to/repo` with the absolute path to your repository root.
 `.mcp.json` is gitignored (contains machine-specific paths) — each developer runs this once.
 
+If you configure `.mcp.json` manually, make sure `semantic-search` is enabled in
+`.claude/settings.local.json`.
+
 Verify registration:
 ```
 claude mcp list
@@ -108,7 +167,7 @@ claude mcp list
 
 Then reload the Claude Code window (`Ctrl+Shift+P` → **Developer: Reload Window**) and run `/mcp` to confirm the server and its 4 tools are active.
 
-**Allow all 4 tools in `~/.claude/settings.json`** so Claude can call them without prompting:
+**Auto-allow only the 3 read-only tools in `~/.claude/settings.json`** so Claude can call them without prompting:
 
 ```json
 {
@@ -116,14 +175,16 @@ Then reload the Claude Code window (`Ctrl+Shift+P` → **Developer: Reload Windo
     "allow": [
       "mcp__semantic-search__search_codebase",
       "mcp__semantic-search__get_file_chunk",
-      "mcp__semantic-search__list_indexed_files",
-      "mcp__semantic-search__refresh_docs_index"
+      "mcp__semantic-search__list_indexed_files"
     ]
   }
 }
 ```
 
+Leave `mcp__semantic-search__refresh_docs_index` out of the allow-list so Claude shows an approval prompt before re-indexing docs.
+
 Merge these into the existing `allow` array — do not replace the entire file.
+
 
 ### Claude Desktop
 

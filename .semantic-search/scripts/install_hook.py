@@ -6,20 +6,26 @@ Steps performed:
   1. Creates .semantic-search/.venv (if absent)
   2. Installs the plugin package into the venv  (pip install -e .)
   3. Installs post-commit and post-merge git hooks
-  4. (--claude) Registers the MCP server in ~/.claude/mcp.json
-  5. (--claude) Adds all 4 tool permissions to ~/.claude/settings.json
+  4. (--claude) Removes any legacy user-scoped "semantic-search" MCP entry
+  5. (--claude) Registers the MCP server in repo_root/.mcp.json
+  6. (--claude) Enables the project MCP server in repo_root/.claude/settings.local.json
+  7. (--claude) Auto-allows only the 3 read-only tools in Claude settings
+  8. (--claude) Removes refresh_docs_index from allow-lists so Claude asks for approval
+  9. (--codex) Registers the MCP server in repo_root/.codex/config.toml
 
 Works on Windows, Linux, and macOS without requiring bash.
 
 Usage (from repo root or anywhere inside the repo):
-    python .semantic-search/scripts/install_hook.py            # venv + hooks only
-    python .semantic-search/scripts/install_hook.py --claude   # + Claude Code setup
+    python .semantic-search/scripts/install_hook.py                   # venv + hooks only
+    python .semantic-search/scripts/install_hook.py --claude          # + project-scoped Claude Code setup
+    python .semantic-search/scripts/install_hook.py --codex           # + Codex project MCP setup
+    python .semantic-search/scripts/install_hook.py --claude --codex  # + both
 """
 
 from __future__ import annotations
 
 import json
-import os
+import re
 import shutil
 import stat
 import subprocess
@@ -28,11 +34,29 @@ from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 PLUGIN_DIR = SCRIPT_DIR.parent
+_MCP_SERVER_NAME = "semantic-search"
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+def _read_json(path: Path) -> dict:
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+
+
+def _write_json(path: Path, payload: dict) -> None:
+    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+
+def _json_path(path: Path) -> str:
+    return path.resolve().as_posix()
+
 
 def _repo_root() -> Path:
     result = subprocess.run(
@@ -94,14 +118,12 @@ def _install_hook(repo_root: Path, hook_name: str) -> None:
         print(f"Error: hook source not found at {src}", file=sys.stderr)
         sys.exit(1)
 
-    # Back up an existing non-symlink hook
     if dst.exists() and not dst.is_symlink():
         bak = dst.with_suffix(".bak")
         print(f"Warning: {dst} already exists and is not a symlink.")
         print(f"Backing it up to {bak}")
         shutil.move(str(dst), str(bak))
 
-    # Try symlink first, fall back to copy
     try:
         if dst.is_symlink():
             dst.unlink()
@@ -111,83 +133,175 @@ def _install_hook(repo_root: Path, hook_name: str) -> None:
         shutil.copy2(str(src), str(dst))
         print(f"Copied (symlink unavailable): {src} -> {dst}")
 
-    # Make executable (no-op on Windows but harmless)
     dst.chmod(dst.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
     print(f"Hook '{hook_name}' installed.")
 
 
 # ---------------------------------------------------------------------------
-# Step 4 — Claude MCP server registration (~/.claude/mcp.json)
+# Step 4 + 5 + 6 — Claude MCP registration (project-scoped .mcp.json)
 # ---------------------------------------------------------------------------
 
-def _register_mcp_server(plugin_dir: Path, venv_python: Path) -> None:
-    """Add the semantic-search MCP server entry to ~/.claude/mcp.json."""
+def _remove_legacy_user_mcp_server() -> None:
     claude_dir = Path.home() / ".claude"
-    claude_dir.mkdir(exist_ok=True)
     mcp_json = claude_dir / "mcp.json"
+    config = _read_json(mcp_json)
+    servers = config.get("mcpServers")
 
-    if mcp_json.exists():
-        try:
-            config = json.loads(mcp_json.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            config = {}
-    else:
-        config = {}
+    if not isinstance(servers, dict) or _MCP_SERVER_NAME not in servers:
+        print("No legacy user-scoped MCP server 'semantic-search' found in ~/.claude/mcp.json.")
+        return
 
+    del servers[_MCP_SERVER_NAME]
+    config["mcpServers"] = servers
+    _write_json(mcp_json, config)
+    print("Removed legacy user-scoped MCP server 'semantic-search' from ~/.claude/mcp.json.")
+
+
+def _register_project_mcp_server(repo_root: Path, plugin_dir: Path, venv_python: Path) -> None:
+    """Add the semantic-search MCP server entry to repo_root/.mcp.json."""
+    mcp_json = repo_root / ".mcp.json"
+    config = _read_json(mcp_json)
     config.setdefault("mcpServers", {})
 
     entry = {
-        "command": str(venv_python),
+        "type": "stdio",
+        "command": _json_path(venv_python),
         "args": ["-m", "semantic_search.mcp_server"],
-        "cwd": str(plugin_dir),
+        "env": {
+            "SEMANTIC_SEARCH_ENV_FILE": _json_path(plugin_dir / ".env"),
+        },
     }
 
-    if "semantic-search" in config["mcpServers"]:
-        config["mcpServers"]["semantic-search"] = entry
-        print("MCP server 'semantic-search' already registered — updated path.")
+    if _MCP_SERVER_NAME in config["mcpServers"]:
+        config["mcpServers"][_MCP_SERVER_NAME] = entry
+        print("Project MCP server 'semantic-search' already registered — updated repo .mcp.json.")
     else:
-        config["mcpServers"]["semantic-search"] = entry
-        print("Registered MCP server 'semantic-search' in ~/.claude/mcp.json.")
+        config["mcpServers"][_MCP_SERVER_NAME] = entry
+        print("Registered project MCP server 'semantic-search' in .mcp.json.")
 
-    mcp_json.write_text(json.dumps(config, indent=2), encoding="utf-8")
+    _write_json(mcp_json, config)
+
+
+def _enable_project_mcp_server(repo_root: Path) -> None:
+    """Enable the repo .mcp.json server in repo_root/.claude/settings.local.json."""
+    project_claude_dir = repo_root / ".claude"
+    project_claude_dir.mkdir(exist_ok=True)
+    settings_local_json = project_claude_dir / "settings.local.json"
+
+    settings = _read_json(settings_local_json)
+    enabled = settings.setdefault("enabledMcpjsonServers", [])
+    if _MCP_SERVER_NAME not in enabled:
+        enabled.append(_MCP_SERVER_NAME)
+        _write_json(settings_local_json, settings)
+        print("Enabled project MCP server 'semantic-search' in .claude/settings.local.json.")
+    else:
+        print("Project MCP server 'semantic-search' already enabled in .claude/settings.local.json.")
 
 
 # ---------------------------------------------------------------------------
-# Step 5 — Claude tool permissions (~/.claude/settings.json)
+# Step 7 + 8 — Claude tool permissions
 # ---------------------------------------------------------------------------
 
-_MCP_PERMISSIONS = [
+_AUTO_ALLOW_MCP_PERMISSIONS = [
     "mcp__semantic-search__search_codebase",
     "mcp__semantic-search__get_file_chunk",
     "mcp__semantic-search__list_indexed_files",
+]
+_APPROVAL_REQUIRED_MCP_PERMISSIONS = [
     "mcp__semantic-search__refresh_docs_index",
 ]
 
 
-def _add_permissions(claude_dir: Path) -> None:
-    """Merge MCP tool permissions into ~/.claude/settings.json."""
-    settings_json = claude_dir / "settings.json"
+def _reconcile_permissions(settings_path: Path, label: str) -> None:
+    settings_path.parent.mkdir(exist_ok=True)
+    settings = _read_json(settings_path)
+    allow = settings.setdefault("permissions", {}).setdefault("allow", [])
 
-    if settings_json.exists():
-        try:
-            settings = json.loads(settings_json.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            settings = {}
-    else:
-        settings = {}
+    added = [permission for permission in _AUTO_ALLOW_MCP_PERMISSIONS if permission not in allow]
+    for permission in added:
+        allow.append(permission)
 
-    settings.setdefault("permissions", {}).setdefault("allow", [])
-    existing = set(settings["permissions"]["allow"])
+    removed = [permission for permission in allow if permission in _APPROVAL_REQUIRED_MCP_PERMISSIONS]
+    if removed:
+        allow[:] = [permission for permission in allow if permission not in _APPROVAL_REQUIRED_MCP_PERMISSIONS]
 
-    added = [p for p in _MCP_PERMISSIONS if p not in existing]
+    if added or removed:
+        _write_json(settings_path, settings)
+
     if added:
-        settings["permissions"]["allow"].extend(added)
-        settings_json.write_text(json.dumps(settings, indent=2), encoding="utf-8")
-        print(f"Added {len(added)} permission(s) to ~/.claude/settings.json:")
-        for p in added:
-            print(f"  + {p}")
+        print(f"Added {len(added)} auto-allow permission(s) to {label}:")
+        for permission in added:
+            print(f"  + {permission}")
     else:
-        print("All MCP permissions already present in ~/.claude/settings.json.")
+        print(f"All auto-allow semantic-search permissions already present in {label}.")
+
+    if removed:
+        print(f"Removed {len(removed)} approval-required permission(s) from {label}:")
+        for permission in removed:
+            print(f"  - {permission}")
+    else:
+        print(f"No approval-required semantic-search permissions found in {label}.")
+
+
+def _reconcile_claude_permissions(repo_root: Path) -> None:
+    """Keep read-only tools auto-allowed and refresh_docs_index promptable."""
+    _reconcile_permissions(Path.home() / ".claude" / "settings.json", "~/.claude/settings.json")
+    _reconcile_permissions(repo_root / ".claude" / "settings.local.json", ".claude/settings.local.json")
+
+
+# ---------------------------------------------------------------------------
+# Step 9 — Codex project MCP registration (<repo>/.codex/config.toml)
+# ---------------------------------------------------------------------------
+
+_TOML_TABLE_RE = re.compile(r"^\[(?P<name>[^\]]+)\]\s*$")
+
+
+def _strip_toml_table(text: str, table_prefix: str) -> str:
+    """Remove a TOML table and any nested subtables while preserving other content."""
+    kept_lines: list[str] = []
+    skipping = False
+
+    for line in text.splitlines():
+        match = _TOML_TABLE_RE.match(line.strip())
+        if match:
+            table_name = match.group("name").strip()
+            skipping = table_name == table_prefix or table_name.startswith(f"{table_prefix}.")
+        if not skipping:
+            kept_lines.append(line)
+
+    return "\n".join(kept_lines).strip()
+
+
+def _build_codex_mcp_block(repo_root: Path, plugin_dir: Path, venv_python: Path) -> str:
+    env_file = plugin_dir / ".env"
+    return "\n".join(
+        [
+            f"[mcp_servers.{_MCP_SERVER_NAME}]",
+            f"command = {json.dumps(str(venv_python))}",
+            'args = ["-m", "semantic_search.mcp_server"]',
+            f"cwd = {json.dumps(str(repo_root))}",
+            "startup_timeout_sec = 20",
+            "tool_timeout_sec = 180",
+            "",
+            f"[mcp_servers.{_MCP_SERVER_NAME}.env]",
+            f"SEMANTIC_SEARCH_ENV_FILE = {json.dumps(str(env_file))}",
+        ]
+    )
+
+
+def _register_codex_mcp_server(repo_root: Path, plugin_dir: Path, venv_python: Path) -> None:
+    """Add the semantic-search MCP server entry to repo_root/.codex/config.toml."""
+    codex_dir = repo_root / ".codex"
+    codex_dir.mkdir(exist_ok=True)
+    config_toml = codex_dir / "config.toml"
+
+    existing = config_toml.read_text(encoding="utf-8") if config_toml.exists() else ""
+    cleaned = _strip_toml_table(existing, f"mcp_servers.{_MCP_SERVER_NAME}")
+    block = _build_codex_mcp_block(repo_root, plugin_dir, venv_python)
+
+    new_text = f"{cleaned}\n\n{block}\n" if cleaned else f"{block}\n"
+    config_toml.write_text(new_text, encoding="utf-8")
+    print("Registered MCP server 'semantic-search' in .codex/config.toml.")
 
 
 # ---------------------------------------------------------------------------
@@ -196,6 +310,7 @@ def _add_permissions(claude_dir: Path) -> None:
 
 def main() -> None:
     configure_claude = "--claude" in sys.argv
+    configure_codex = "--codex" in sys.argv
 
     repo_root = _repo_root()
     plugin_dir = repo_root / ".semantic-search"
@@ -204,28 +319,36 @@ def main() -> None:
     print("semantic-search installer")
     print("=" * 60)
 
-    # Steps 1 & 2: venv + package
     venv_python = _setup_venv(plugin_dir)
 
-    # Step 3: git hooks
     print("\nInstalling git hooks ...")
     for hook in ("post-commit", "post-merge"):
         _install_hook(repo_root, hook)
 
     if configure_claude:
-        # Step 4: Claude MCP registration
-        print("\nConfiguring Claude MCP server ...")
-        _register_mcp_server(plugin_dir, venv_python)
+        print("\nRemoving legacy user-scoped Claude MCP server ...")
+        _remove_legacy_user_mcp_server()
 
-        # Step 5: Claude permissions
-        print("\nAdding Claude tool permissions ...")
-        _add_permissions(Path.home() / ".claude")
+        print("\nConfiguring project-scoped Claude MCP server ...")
+        _register_project_mcp_server(repo_root, plugin_dir, venv_python)
+
+        print("\nEnabling project MCP server in Claude local settings ...")
+        _enable_project_mcp_server(repo_root)
+
+        print("\nReconciling Claude tool permissions ...")
+        _reconcile_claude_permissions(repo_root)
+
+    if configure_codex:
+        print("\nConfiguring Codex project MCP server ...")
+        _register_codex_mcp_server(repo_root, plugin_dir, venv_python)
 
     print("\n" + "=" * 60)
     print("Installation complete!")
     print("Hooks will auto-index on commits and merges to the main branch.")
     if configure_claude:
-        print("Restart Claude Code to load the semantic-search MCP server.")
+        print("Restart Claude Code to load the project-scoped semantic-search MCP server.")
+    if configure_codex:
+        print("Trust or reopen the project in Codex to load the project MCP server.")
     print("=" * 60)
 
 

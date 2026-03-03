@@ -38,7 +38,7 @@ def _repo_root() -> Path:
     """Return the git repository root (one level above .semantic-search/)."""
     result = subprocess.run(
         ["git", "rev-parse", "--show-toplevel"],
-        capture_output=True, text=True,
+        capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=5,
     )
     if result.returncode == 0:
         return Path(result.stdout.strip())

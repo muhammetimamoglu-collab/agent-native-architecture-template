@@ -18,7 +18,13 @@ from pathlib import Path
 
 
 def _git(*args: str) -> str:
-    return subprocess.run(["git", *args], capture_output=True, text=True).stdout.strip()
+    return subprocess.run(
+        ["git", *args],
+        capture_output=True,
+        text=True,
+        stdin=subprocess.DEVNULL,
+        timeout=5,
+    ).stdout.strip()
 
 
 def _diff(mode: str) -> str:
@@ -27,13 +33,13 @@ def _diff(mode: str) -> str:
         # All files changed between the pre-merge state and the result
         return subprocess.run(
             ["git", "diff", "--diff-filter=AMDCR", "--name-status", "ORIG_HEAD", "HEAD"],
-            capture_output=True, text=True,
+            capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=5,
         ).stdout
     else:
         # Single commit: what changed in HEAD
         return subprocess.run(
             ["git", "diff-tree", "--no-commit-id", "-r", "--diff-filter=AMDCR", "--name-status", "HEAD"],
-            capture_output=True, text=True,
+            capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=5,
         ).stdout
 
 

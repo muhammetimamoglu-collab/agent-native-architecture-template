@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+from datetime import UTC, datetime
+from pathlib import Path
 
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
@@ -324,14 +326,12 @@ async def _list_indexed_files(args: dict) -> list[TextContent]:
 
 
 async def _refresh_docs_index(args: dict) -> list[TextContent]:
-    from datetime import UTC, datetime
-    from pathlib import Path
-
     import subprocess
 
     total_indexed = 0
     total_skipped = 0
     errors: list[dict[str, str]] = []
+    started_at = datetime.now(UTC)
 
     try:
         changed_files: list[str] = args["changed_files"]
@@ -342,6 +342,8 @@ async def _refresh_docs_index(args: dict) -> list[TextContent]:
         result = subprocess.run(
             ["git", "rev-parse", "--show-toplevel"],
             capture_output=True, text=True,
+            stdin=subprocess.DEVNULL,
+            timeout=5,
         )
         repo_root = Path(result.stdout.strip()) if result.returncode == 0 else Path.cwd().parent
 
@@ -369,10 +371,12 @@ async def _refresh_docs_index(args: dict) -> list[TextContent]:
     except Exception as exc:
         errors.append({"scope": "refresh_docs_index", "error": str(exc)})
 
+    finished_at = datetime.now(UTC)
     result_payload = {
         "indexed": total_indexed,
         "skipped": total_skipped,
-        "updated_at": datetime.now(UTC).isoformat(),
+        "updated_at": finished_at.isoformat(),
+        "elapsed_seconds": round((finished_at - started_at).total_seconds(), 3),
     }
     if errors:
         result_payload["errors"] = errors

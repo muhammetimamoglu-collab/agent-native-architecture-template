@@ -120,7 +120,7 @@ def _git_last_modified(path: Path) -> str:
     try:
         result = subprocess.run(
             ["git", "log", "-1", "--format=%cI", "--", str(path)],
-            capture_output=True, text=True, timeout=5,
+            capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=5,
         )
         return result.stdout.strip()
     except Exception:
