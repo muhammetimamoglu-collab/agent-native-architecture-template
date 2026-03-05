@@ -238,6 +238,42 @@ Use a distinct server name per project (e.g. `semantic-search-my-project`) to av
 | `list_indexed_files` | Audit what is indexed, verify recent re-indexing |
 | `refresh_docs_index` | After updating docs — call only with explicit human approval |
 
+## Enforcing Semantic Search in AGENT.md
+
+Installing the plugin alone does not change how agents explore the codebase. To make
+`search_codebase` the **mandatory first step** for every task, you must explicitly declare
+this rule in your project's `AGENT.md`. Without it, agents will fall back to direct file
+access by default.
+
+Add the following section near the top of your `AGENT.md` (before any task-specific rules):
+
+```markdown
+## Semantic Search First (ABSOLUTE RULE)
+
+**Before starting any work, planning, or investigation — all file, data, and information
+search operations related to the project MUST be performed exclusively through the
+semantic search tool (`search_codebase`).**
+
+- This rule is absolute and non-negotiable.
+- No direct file reading, glob searches, or grep operations may be used
+  as the first step of exploration for any task.
+- Direct file access tools (Read, Glob, Grep) may only be used
+  **after** semantic search has been performed for the current task,
+  and only for files or chunks NOT already surfaced by the search.
+- Skipping this step is a rule violation, regardless of task size or urgency.
+
+If `search_codebase` is not available (plugin not installed or Qdrant not running),
+this rule is suspended and direct file access is permitted.
+```
+
+The fallback clause ensures agents remain functional when the plugin is offline or not yet installed.
+
+> **Each agent you use needs this rule in its own instruction file.**
+> Different agents read different files — Claude Code reads `CLAUDE.md`, Codex reads `AGENTS.md`,
+> Cursor reads `.cursorrules`, and so on. If you use multiple agents in the same project,
+> add the rule block above to every relevant instruction file so all agents enforce the same
+> search-first behavior.
+
 ---
 
 ## Switching Embedding Models

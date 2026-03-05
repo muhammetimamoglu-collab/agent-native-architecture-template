@@ -2,6 +2,25 @@
 
 This repository is designed to be used by AI agents. The following rules are mandatory.
 
+## Semantic Search First (ABSOLUTE RULE)
+
+**Before starting any work, planning, or investigation — all file, data, and information
+search operations related to the project MUST be performed exclusively through the
+semantic search tool (`search_codebase`).**
+
+- This rule is absolute and non-negotiable.
+- No direct file reading, glob searches, or grep operations may be used
+  as the first step of exploration for any task.
+- Direct file access tools (Read, Glob, Grep) may only be used
+  **after** semantic search has been performed for the current task,
+  and only for files or chunks NOT already surfaced by the search.
+- Skipping this step is a rule violation, regardless of task size or urgency.
+
+If `search_codebase` is not available (plugin not installed or Qdrant not running),
+this rule is suspended and direct file access is permitted.
+
+---
+
 ## Agent Checklist (Mandatory)
 
 Before starting any task that generates or reviews changes, open
