@@ -61,13 +61,17 @@ def _log(log_path: Path, message: str) -> None:
         pass  # Never fail the hook because of logging
 
 
-def _check_qdrant(qdrant_url: str, log_path: Path) -> bool:
+def _check_qdrant(qdrant_url: str, log_path: Path, api_key: str = "") -> bool:
     """Return True if Qdrant responds; print and log a clear error otherwise."""
     if qdrant_url == ":memory:":
         return True  # embedded mode — no external server needed
     check_url = qdrant_url.rstrip("/") + "/healthz"
+    req = urllib.request.Request(check_url)
+    if api_key:
+        req.add_header("api-key", api_key)
+    is_cloud = "cloud.qdrant.io" in qdrant_url
     try:
-        with urllib.request.urlopen(check_url, timeout=5) as resp:
+        with urllib.request.urlopen(req, timeout=5) as resp:
             if resp.status < 500:
                 return True
             msg = f"Qdrant at {qdrant_url} returned HTTP {resp.status}"
@@ -77,11 +81,17 @@ def _check_qdrant(qdrant_url: str, log_path: Path) -> bool:
         msg = f"Qdrant check failed ({qdrant_url}): {exc}"
 
     print(f"[semantic-search] WARNING: {msg}", file=sys.stderr)
-    print(
-        "[semantic-search] Hint: start Qdrant with  "
-        "docker compose -f .semantic-search/docker-compose.yml up -d",
-        file=sys.stderr,
-    )
+    if is_cloud:
+        print(
+            "[semantic-search] Hint: check QDRANT_API_KEY in .semantic-search/.env",
+            file=sys.stderr,
+        )
+    else:
+        print(
+            "[semantic-search] Hint: start Qdrant with  "
+            "docker compose -f .semantic-search/docker-compose.yml up -d",
+            file=sys.stderr,
+        )
     _log(log_path, f"ERROR  {msg}")
     return False
 
@@ -111,19 +121,21 @@ def main(mode: str) -> None:
 
     # Read extensions and Qdrant URL from settings; fall back to safe defaults
     qdrant_url = "http://localhost:6333"
+    qdrant_api_key = ""
     try:
         sys.path.insert(0, str(plugin_dir))
         from semantic_search.config import settings  # type: ignore[import]
         code_exts = {e.lower() for e in settings.index_extensions_code}
         docs_exts = {e.lower() for e in settings.index_extensions_docs}
         qdrant_url = settings.qdrant_url
+        qdrant_api_key = settings.qdrant_api_key
     except Exception as exc:
         code_exts = {".py", ".ts", ".go", ".js", ".cs", ".rs"}
         docs_exts = {".md", ".yaml", ".yml", ".mmd"}
         _log(log_path, f"WARN   Could not load settings ({exc}); using defaults")
 
     # Fail fast — no point running the indexer if Qdrant is down
-    if not _check_qdrant(qdrant_url, log_path):
+    if not _check_qdrant(qdrant_url, log_path, qdrant_api_key):
         _log(log_path, "SKIP   Qdrant unreachable — auto-index skipped")
         sys.exit(0)
 
