@@ -233,3 +233,23 @@ def code_delete(
             console.print(f"[green]Deleted chunks for[/green] {rel}")
         except Exception as exc:
             console.print(f"[red]Failed to delete {fp}: {exc}[/red]")
+
+
+# ---------------------------------------------------------------------------
+# Root app (used by `python -m semantic_search.indexer`)
+# ---------------------------------------------------------------------------
+
+app = typer.Typer(
+    help="Semantic search indexing CLI.",
+    no_args_is_help=True,
+)
+app.add_typer(docs_app, name="docs")
+app.add_typer(code_app, name="code")
+
+
+def main() -> None:
+    app()
+
+
+if __name__ == "__main__":
+    main()
